@@ -46,3 +46,9 @@ next-env.d.ts
 terraform.tfvars
 *.tfvars
 !terraform.tfvars.example
+
+# local k3s configuration (contains actual secrets)
+infra/local/
+!infra/local/.gitignore
+!infra/local/README.md
+!infra/local/terraform.tfvars.example

@@ -9,7 +9,7 @@ module "compute" {
   source        = "./modules/compute"
   namespace     = var.namespace
   project_name  = var.project_name
-  web_image     = var.web_image
+  image         = var.image
   replicas_web  = var.replicas_web
   resources_web = var.resources_web
   depends_on    = [module.application]

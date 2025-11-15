@@ -13,7 +13,12 @@ base_path = "/"
 
 # Container Image
 # Replace with your actual container registry URL for the Next.js application
-web_image = "your-registry/ni2faa-profile:latest"
+# For GitHub Container Registry (used in CI/CD):
+# image = "ghcr.io/ni2faa/me:latest"
+# Or with specific commit SHA:
+# image = "ghcr.io/ni2faa/me:abc123def456"
+# For other registries:
+image = "your-registry/ni2faa-profile:latest"
 
 # Replica Configuration
 # Number of pod replicas for high availability

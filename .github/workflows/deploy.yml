@@ -1,0 +1,144 @@
+name: Build and Deploy Application
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set image tag
+        id: image
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
+          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "Built and pushed: $IMAGE_TAG"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.5.0"
+
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "latest"
+
+      - name: Configure kubectl
+        id: kubeconfig
+        run: |
+          # For k3s self-hosted runner, kubeconfig is typically at /etc/rancher/k3s/k3s.yaml
+          # If KUBECONFIG secret is provided, use it; otherwise use k3s default location
+          KUBECONFIG_PATH=""
+          if [ -n "${{ secrets.KUBECONFIG }}" ]; then
+            mkdir -p ~/.kube
+            echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
+            chmod 600 ~/.kube/config
+            KUBECONFIG_PATH=~/.kube/config
+          elif [ -f /etc/rancher/k3s/k3s.yaml ]; then
+            mkdir -p ~/.kube
+            cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+            chmod 600 ~/.kube/config
+            # Update server URL to use localhost for self-hosted runner
+            sed -i 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || sed -i '' 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || true
+            KUBECONFIG_PATH=~/.kube/config
+          else
+            echo "Error: No kubeconfig found. Please set KUBECONFIG secret or ensure k3s.yaml exists at /etc/rancher/k3s/k3s.yaml"
+            exit 1
+          fi
+          echo "kubeconfig_path=$KUBECONFIG_PATH" >> $GITHUB_OUTPUT
+          echo "KUBECONFIG_PATH=$KUBECONFIG_PATH" >> $GITHUB_ENV
+
+      - name: Terraform Init
+        working-directory: ./infra
+        run: terraform init
+
+      - name: Create Terraform variables file
+        working-directory: ./infra
+        run: |
+          # Use empty map if secret_data is not provided
+          SECRET_DATA="${{ secrets.TF_VAR_secret_data }}"
+          if [ -z "$SECRET_DATA" ]; then
+            SECRET_DATA="{}"
+          fi
+          cat > terraform.tfvars <<EOF
+          kubeconfig_path = "${{ steps.kubeconfig.outputs.kubeconfig_path }}"
+          project_name = "${{ secrets.TF_VAR_project_name }}"
+          namespace = "${{ secrets.TF_VAR_namespace }}"
+          domain = "${{ secrets.TF_VAR_domain }}"
+          base_path = "${{ secrets.TF_VAR_base_path }}"
+          image = "${{ steps.image.outputs.image_tag }}"
+          replicas_web = ${{ secrets.TF_VAR_replicas_web }}
+          resources_web = ${{ secrets.TF_VAR_resources_web }}
+          secret_data = $SECRET_DATA
+          EOF
+
+      - name: Terraform Plan
+        working-directory: ./infra
+        env:
+          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+        run: terraform plan
+
+      - name: Terraform Apply
+        working-directory: ./infra
+        env:
+          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+        run: terraform apply -auto-approve
+
+      - name: Deployment Summary
+        run: |
+          echo "## Full Application Deployment Complete 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Image:** \`${{ steps.image.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployed Resources:**" >> $GITHUB_STEP_SUMMARY
+          echo "- Namespace: \`${{ secrets.TF_VAR_namespace }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Service: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Ingress: \`${{ secrets.TF_VAR_project_name }}\`" >> $GITHUB_STEP_SUMMARY
+

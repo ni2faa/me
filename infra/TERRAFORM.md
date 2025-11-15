@@ -39,6 +39,35 @@ infra/
 
 ## Quick Start
 
+### Option A: Local Deployment (Recommended for Testing)
+
+1. **Set up local configuration**:
+   ```bash
+   cd infra/local
+   cp terraform.tfvars.example terraform.tfvars
+   # Edit terraform.tfvars with your actual values
+   cd ..
+   ```
+
+2. **Deploy locally** (run from `infra/` directory):
+   ```bash
+   # Make sure you're in the infra/ directory
+   cd infra
+   
+   # Initialize Terraform (first time only)
+   terraform init
+   
+   # Review what will be created/changed
+   terraform plan -var-file=local/terraform.tfvars
+   
+   # Apply the configuration
+   terraform apply -var-file=local/terraform.tfvars
+   ```
+
+See [local/README.md](local/README.md) for more details.
+
+### Option B: Using terraform.tfvars in infra/ (Alternative)
+
 ### 1. Configure Variables
 
 Create `terraform.tfvars` in the `infra/` directory:
@@ -56,7 +85,7 @@ domain    = "yourdomain.com"
 base_path = "/"
 
 # Container Image
-web_image = "your-registry/ni2faa-profile:latest"
+image = "your-registry/ni2faa-profile:latest"
 
 # Replica Configuration
 replicas_web = 2

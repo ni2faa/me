@@ -23,7 +23,7 @@ variable "namespace" {
   description = "Kubernetes namespace"
 }
 
-variable "web_image" {
+variable "image" {
   type        = string
   description = "Container image for Next.js application"
 }
@@ -41,4 +41,5 @@ variable "resources_web" {
 variable "secret_data" {
   type        = map(string)
   description = "Key-value secret data for the project"
+  default     = {}
 }
