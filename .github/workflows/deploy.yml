@@ -127,6 +127,20 @@ jobs:
             exit 1
           fi
 
+      - name: Install skopeo (for better HTTP registry support)
+        run: |
+          # Install skopeo if available (better tool for pushing to HTTP registries)
+          if command -v apt-get &> /dev/null; then
+            sudo apt-get update -qq && sudo apt-get install -y skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
+          elif command -v yum &> /dev/null; then
+            sudo yum install -y skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
+          elif command -v apk &> /dev/null; then
+            sudo apk add --no-cache skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
+          else
+            echo "Package manager not found, skopeo will not be installed"
+          fi
+        continue-on-error: true
+
       - name: Log in to local registry
         run: |
           # Test registry connectivity via HTTP first
@@ -241,45 +255,82 @@ jobs:
           echo "Docker daemon insecure-registries:"
           docker info 2>/dev/null | grep -i "insecure" || echo "Could not verify insecure-registries in docker info"
           
-          # Try pushing with explicit HTTP registry URL
-          # Note: Docker image tags don't include protocol, but we can try to force HTTP
-          # by ensuring the registry is in insecure-registries and Docker uses it
-          echo ""
-          echo "Attempting to push ${REGISTRY}/${IMAGE_NAME}:${SHA}..."
+          # Docker push is still trying HTTPS despite insecure-registries
+          # The issue is that insecure-registries only skips TLS verification, but Docker still tries HTTPS first
+          # We need to use a workaround: use skopeo or docker save + registry API, or configure Docker differently
           
-          # Use docker push with retry logic
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
-              echo "✓ Successfully pushed ${REGISTRY}/${IMAGE_NAME}:${SHA}"
-              break
+          echo ""
+          echo "=== Attempting to push using Docker (may still try HTTPS) ==="
+          echo "Note: If this fails with HTTPS errors, we'll use an alternative method"
+          
+          # Try docker push first (it might work if insecure-registries is properly configured)
+          if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
+            echo "✓ Successfully pushed ${REGISTRY}/${IMAGE_NAME}:${SHA} using docker push"
+          else
+            echo "✗ Docker push failed (likely HTTPS issue)"
+            echo ""
+            echo "=== Using alternative method: docker save + skopeo or registry API ==="
+            
+            # Check if skopeo is available (better tool for pushing to registries)
+            if command -v skopeo &> /dev/null; then
+              echo "Using skopeo to push image (handles HTTP registries better)..."
+              # Create a temporary local tag for the image
+              LOCAL_TAG="temp-push-${SHA}"
+              docker tag ${REGISTRY}/${IMAGE_NAME}:${SHA} ${LOCAL_TAG}:latest
+              
+              REGISTRY_URL="${{ env.REGISTRY_URL }}"
+              echo "Pushing to HTTP registry: ${REGISTRY_URL}"
+              
+              # Use skopeo to copy from local Docker daemon to HTTP registry
+              # skopeo can handle HTTP registries better than docker push
+              # Try with HTTP URL explicitly (skopeo supports http:// in the URL)
+              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY_URL}/${IMAGE_NAME}:${SHA} || {
+                echo "Skopeo copy with HTTP URL failed, trying without protocol..."
+                # Try without http:// (skopeo should detect HTTP from insecure-registries or config)
+                skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY}/${IMAGE_NAME}:${SHA}
+              }
+              
+              # Also push latest tag
+              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY_URL}/${IMAGE_NAME}:latest 2>/dev/null || \
+              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY}/${IMAGE_NAME}:latest 2>/dev/null || \
+              echo "Warning: Failed to push latest tag with skopeo"
+              
+              # Clean up temporary tag
+              docker rmi ${LOCAL_TAG}:latest 2>/dev/null || true
+              echo "✓ Successfully pushed using skopeo"
             else
-              RETRY_COUNT=$((RETRY_COUNT + 1))
-              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-                echo "Push failed, retrying in 5 seconds... (attempt $RETRY_COUNT/$MAX_RETRIES)"
-                sleep 5
-                # Try to reload Docker configuration
-                sudo killall -HUP dockerd 2>/dev/null || true
-                sleep 2
+              echo "Skopeo not available, trying docker save + manual registry API push..."
+              echo "This is complex, so we'll try a simpler approach first..."
+              
+              # Alternative: Try to use docker push with DOCKER_CONTENT_TRUST=0 and see if it works
+              # Or try to configure Docker to use HTTP by default
+              echo "Attempting to force HTTP by using registry API directly..."
+              
+              # This is complex - let's try one more time with docker push after ensuring config is loaded
+              echo "Re-checking Docker daemon configuration..."
+              sudo cat /etc/docker/daemon.json
+              
+              # Force Docker to reload config
+              sudo killall -HUP dockerd 2>/dev/null || true
+              sleep 3
+              
+              # Try push one more time
+              echo "Retrying docker push after config reload..."
+              if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
+                echo "✓ Successfully pushed after config reload"
               else
-                echo "✗ Failed to push after $MAX_RETRIES attempts"
-                echo "Trying alternative method: using docker save/load via HTTP..."
-                
-                # Alternative: Save image and push via HTTP API directly
-                # This is a workaround if docker push doesn't work
-                docker save ${REGISTRY}/${IMAGE_NAME}:${SHA} | gzip | \
-                  curl -X POST --data-binary @- \
-                  -H "Content-Type: application/vnd.docker.image.rootfs.diff.tar.gzip" \
-                  ${REGISTRY_URL}/v2/${IMAGE_NAME}/blobs/uploads/ 2>&1 || \
-                  echo "Alternative push method also failed"
+                echo "✗ Still failing. The registry might require HTTPS with proper certificates."
+                echo "Please check if the registry is actually HTTP or HTTPS."
+                echo "If it's HTTPS, you may need to add the registry's CA certificate to Docker."
                 exit 1
               fi
             fi
-          done
+          fi
           
+          # Push latest tag
+          echo ""
           echo "Pushing ${REGISTRY}/${IMAGE_NAME}:latest..."
-          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1 || echo "Warning: Failed to push latest tag"
+          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1 || echo "Warning: Failed to push latest tag (non-critical)"
           
           echo ""
           echo "✓ Image push completed: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
