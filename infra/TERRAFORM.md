@@ -39,7 +39,9 @@ infra/
 
 ## Quick Start
 
-### Option A: Local Deployment (Recommended for Testing)
+### Option A: Local Deployment (Secrets/Config Only)
+
+**Purpose**: Use local terraform to manage ONLY secrets and configuration in k3s. Full application deployment is handled by GitHub Actions.
 
 1. **Set up local configuration**:
    ```bash
@@ -49,7 +51,7 @@ infra/
    cd ..
    ```
 
-2. **Deploy locally** (run from `infra/` directory):
+2. **Deploy secrets/config locally** (run from `infra/` directory):
    ```bash
    # Make sure you're in the infra/ directory
    cd infra
@@ -57,12 +59,18 @@ infra/
    # Initialize Terraform (first time only)
    terraform init
    
-   # Review what will be created/changed
-   terraform plan -var-file=local/terraform.tfvars
+   # Review what will be created/changed (secrets/config only)
+   terraform plan -target=module.application -var-file=local/terraform.tfvars
    
-   # Apply the configuration
-   terraform apply -var-file=local/terraform.tfvars
+   # Apply ONLY secrets and configuration
+   terraform apply -target=module.application -var-file=local/terraform.tfvars
    ```
+
+**What this does:**
+- ✅ Creates/updates namespace (`ni2faa-profile`)
+- ✅ Creates/updates secrets (`ni2faa-profile-secret`)
+- ✅ Creates/updates configmap (`ni2faa-profile-config`)
+- ❌ Does NOT deploy application (deployment, service, ingress handled by GitHub Actions)
 
 See [local/README.md](local/README.md) for more details.
 
