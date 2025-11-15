@@ -23,37 +23,75 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
 
-      - name: Configure Docker for local registry
+      - name: Configure Docker for local HTTP registry
         run: |
-          # For local k3s registry with self-signed cert, we need to configure Docker
-          # Option 1: Configure daemon.json (requires sudo and restart)
-          # Option 2: Use HTTP instead of HTTPS (if registry supports it)
-          # Option 3: Configure buildx to skip TLS (done in build step)
+          # Configure Docker to use HTTP (not HTTPS) for local registry
+          # This is required because the local k3s registry uses HTTP on port 5000
           
-          # Try to configure insecure registry (may require sudo)
+          REGISTRY_HOST="${{ env.REGISTRY_HOST }}"
+          
+          # Try to configure insecure registry in daemon.json (requires sudo)
           if command -v sudo &> /dev/null; then
+            # Ensure /etc/docker directory exists
+            sudo mkdir -p /etc/docker
+            
             if [ -f /etc/docker/daemon.json ]; then
-              # Backup and update
-              sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak
+              # Backup first
+              sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak 2>/dev/null || true
+              
               # Use jq if available, otherwise use sed
               if command -v jq &> /dev/null; then
-                cat /etc/docker/daemon.json | jq '. + {"insecure-registries": ["registry.registry.svc.cluster.local:5000"]}' | sudo tee /etc/docker/daemon.json > /dev/null
+                # Add insecure-registries if not already present
+                if ! jq -e '.insecure-registries' /etc/docker/daemon.json > /dev/null 2>&1; then
+                  jq '. + {"insecure-registries": ["'$REGISTRY_HOST'"]}' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
+                elif ! jq -e '.insecure-registries[] | select(. == "'$REGISTRY_HOST'")' /etc/docker/daemon.json > /dev/null 2>&1; then
+                  jq '.insecure-registries += ["'$REGISTRY_HOST'"]' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
+                else
+                  echo "Registry $REGISTRY_HOST already configured in insecure-registries"
+                fi
               else
-                # Simple approach: add insecure-registries if not present
-                if ! grep -q "insecure-registries" /etc/docker/daemon.json; then
-                  sudo sed -i 's/}/,\n  "insecure-registries": ["registry.registry.svc.cluster.local:5000"]\n}/' /etc/docker/daemon.json
+                # Simple sed approach - check if registry already exists
+                if grep -q "$REGISTRY_HOST" /etc/docker/daemon.json 2>/dev/null; then
+                  echo "Registry $REGISTRY_HOST already configured"
+                elif ! grep -q "insecure-registries" /etc/docker/daemon.json; then
+                  # Add insecure-registries to existing JSON
+                  sudo sed -i 's/}/,\n  "insecure-registries": ["'$REGISTRY_HOST'"]\n}/' /etc/docker/daemon.json
+                else
+                  # Append to existing insecure-registries array
+                  sudo sed -i 's/"insecure-registries": \[/"insecure-registries": ["'$REGISTRY_HOST'", /' /etc/docker/daemon.json
                 fi
               fi
             else
-              echo '{"insecure-registries": ["registry.registry.svc.cluster.local:5000"]}' | sudo tee /etc/docker/daemon.json > /dev/null
+              # Create new daemon.json with insecure-registries
+              echo '{"insecure-registries": ["'$REGISTRY_HOST'"]}' | sudo tee /etc/docker/daemon.json > /dev/null
+              echo "Created /etc/docker/daemon.json with insecure-registries configuration"
             fi
-            # Restart Docker (may fail if no systemd)
-            sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || echo "Docker restart skipped"
+            
+            # Verify the configuration
+            echo "Current Docker daemon.json configuration:"
+            sudo cat /etc/docker/daemon.json || echo "Failed to read daemon.json"
+            
+            # Restart Docker daemon to apply changes
+            echo "Restarting Docker daemon..."
+            sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || echo "Docker restart skipped (may need manual restart)"
+            
+            # Wait a moment for Docker to restart
+            sleep 3
+            
+            # Verify Docker is running
+            docker info > /dev/null 2>&1 && echo "Docker is running" || echo "Warning: Docker may not be running properly"
           else
-            echo "Note: Docker daemon configuration requires sudo. Using buildx TLS skip instead."
+            echo "Warning: Docker daemon configuration requires sudo. Registry may fail if not configured."
+            echo "Please manually configure /etc/docker/daemon.json with:"
+            echo '{'
+            echo '  "insecure-registries": ["'$REGISTRY_HOST'"]'
+            echo '}'
+            exit 1
           fi
-        continue-on-error: true
 
       - name: Log in to local registry
         run: |
@@ -63,28 +101,22 @@ jobs:
           echo "Registry login skipped (local registry may not require auth)"
         continue-on-error: true
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          # Use REGISTRY_HOST (without http://) for image tags
-          images: ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
-
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          # For local registry, buildx should handle insecure registry if daemon is configured
-          # If still failing, you may need to configure Docker daemon on the runner machine
+        run: |
+          # Build and push to local HTTP registry
+          # Note: Docker daemon must be configured with insecure-registries for HTTP to work
+          docker buildx build \
+            --platform linux/amd64 \
+            --tag ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --tag ${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:latest \
+            --push \
+            --cache-from type=gha \
+            --cache-to type=gha,mode=max \
+            .
+        env:
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_STEP_LOG_MAX_SIZE: 50000000
+          BUILDKIT_STEP_LOG_MAX_SPEED: 100000000
 
       - name: Set image tag
         id: image
