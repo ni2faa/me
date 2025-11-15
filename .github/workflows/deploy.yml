@@ -129,9 +129,16 @@ jobs:
 
       - name: Log in to local registry
         run: |
+          # Test registry connectivity via HTTP first
+          echo "Testing registry connectivity via HTTP..."
+          REGISTRY_URL="${{ env.REGISTRY_URL }}"
+          curl -v --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -10 || echo "Registry connectivity test"
+          
           # Local registry may not require authentication
-          # Use REGISTRY_URL (with http://) for Docker login
-          docker login ${{ env.REGISTRY_URL }} --username="" --password="" 2>/dev/null || \
+          # Note: docker login might still try HTTPS, but we'll test HTTP connectivity
+          echo "Attempting Docker login (may fail if registry doesn't require auth)..."
+          docker login ${{ env.REGISTRY_URL }} --username="" --password="" 2>&1 || \
+          docker login ${{ env.REGISTRY_HOST }} --username="" --password="" 2>&1 || \
           echo "Registry login skipped (local registry may not require auth)"
         continue-on-error: true
 
@@ -165,20 +172,23 @@ jobs:
           echo "=== Docker daemon configuration ==="
           docker info 2>&1 | head -20
           
-          # Test registry connectivity
+          # Test registry HTTP connectivity
           echo ""
-          echo "=== Testing registry connectivity ==="
-          REGISTRY_HOST="${{ env.REGISTRY_HOST }}"
+          echo "=== Testing registry HTTP connectivity ==="
           REGISTRY_URL="${{ env.REGISTRY_URL }}"
+          echo "Testing: ${REGISTRY_URL}/v2/"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
+            echo "✓ Registry is accessible via HTTP (HTTP code: $HTTP_CODE)"
+          else
+            echo "⚠ Registry HTTP test returned code: $HTTP_CODE (may still work with Docker)"
+          fi
           
-          # Test HTTP connection
-          echo "Testing HTTP connection to registry..."
-          curl -v --max-time 5 ${REGISTRY_URL}/v2/ 2>&1 | head -20 || echo "HTTP connection test failed (may be expected)"
-          
-          # Verify Docker can reach the registry
+          # Force Docker to reload configuration
           echo ""
-          echo "Testing Docker registry access..."
-          docker pull alpine:latest 2>&1 | head -5 || true
+          echo "=== Reloading Docker configuration ==="
+          sudo killall -HUP dockerd 2>/dev/null || sudo pkill -HUP dockerd 2>/dev/null || echo "HUP signal not supported"
+          sleep 2
 
       - name: Build and push Docker image
         run: |
@@ -211,24 +221,68 @@ jobs:
           echo "=== Final daemon.json check before push ==="
           sudo cat /etc/docker/daemon.json
           
+          # Test registry connectivity first
+          echo ""
+          echo "=== Testing registry connectivity ==="
+          REGISTRY_URL="${{ env.REGISTRY_URL }}"
+          echo "Testing HTTP connection to ${REGISTRY_URL}..."
+          curl -v --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -20 || echo "Registry connectivity test completed"
+          
           # Push using docker push (which respects daemon.json insecure-registries)
           echo ""
           echo "=== Pushing image to registry ==="
           echo "Using registry: ${REGISTRY}"
           echo "Image: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
           
-          # Set DOCKER_CONTENT_TRUST=0 to disable content trust (may help with registry issues)
+          # Set DOCKER_CONTENT_TRUST=0 to disable content trust
           export DOCKER_CONTENT_TRUST=0
           
-          # Try pushing with verbose output
-          echo "Pushing ${REGISTRY}/${IMAGE_NAME}:${SHA}..."
-          docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1
+          # Verify Docker daemon configuration one more time
+          echo "Docker daemon insecure-registries:"
+          docker info 2>/dev/null | grep -i "insecure" || echo "Could not verify insecure-registries in docker info"
+          
+          # Try pushing with explicit HTTP registry URL
+          # Note: Docker image tags don't include protocol, but we can try to force HTTP
+          # by ensuring the registry is in insecure-registries and Docker uses it
+          echo ""
+          echo "Attempting to push ${REGISTRY}/${IMAGE_NAME}:${SHA}..."
+          
+          # Use docker push with retry logic
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
+              echo "✓ Successfully pushed ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+              break
+            else
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+                echo "Push failed, retrying in 5 seconds... (attempt $RETRY_COUNT/$MAX_RETRIES)"
+                sleep 5
+                # Try to reload Docker configuration
+                sudo killall -HUP dockerd 2>/dev/null || true
+                sleep 2
+              else
+                echo "✗ Failed to push after $MAX_RETRIES attempts"
+                echo "Trying alternative method: using docker save/load via HTTP..."
+                
+                # Alternative: Save image and push via HTTP API directly
+                # This is a workaround if docker push doesn't work
+                docker save ${REGISTRY}/${IMAGE_NAME}:${SHA} | gzip | \
+                  curl -X POST --data-binary @- \
+                  -H "Content-Type: application/vnd.docker.image.rootfs.diff.tar.gzip" \
+                  ${REGISTRY_URL}/v2/${IMAGE_NAME}/blobs/uploads/ 2>&1 || \
+                  echo "Alternative push method also failed"
+                exit 1
+              fi
+            fi
+          done
           
           echo "Pushing ${REGISTRY}/${IMAGE_NAME}:latest..."
-          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1
+          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1 || echo "Warning: Failed to push latest tag"
           
           echo ""
-          echo "✓ Image pushed successfully: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+          echo "✓ Image push completed: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_STEP_LOG_MAX_SIZE: 50000000
