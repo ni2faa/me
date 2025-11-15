@@ -79,21 +79,34 @@ jobs:
             
             # Restart Docker daemon to apply changes
             echo "Restarting Docker daemon..."
+            # Stop Docker first
+            sudo systemctl stop docker 2>/dev/null || sudo service docker stop 2>/dev/null || true
+            sleep 2
+            # Start Docker
+            sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || echo "Docker start failed"
+            # Also try full restart
             sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || echo "Docker restart skipped (may need manual restart)"
             
-            # Wait a moment for Docker to restart
+            # Wait for Docker to fully restart and load configuration
+            echo "Waiting for Docker daemon to fully restart and load configuration..."
             sleep 5
             
-            # Verify Docker is running
-            for i in {1..10}; do
+            # Verify Docker is running and configuration is loaded
+            for i in {1..15}; do
               if docker info > /dev/null 2>&1; then
-                echo "Docker is running"
+                echo "Docker is running (attempt $i)"
+                # Give it a moment more to fully load configuration
+                sleep 2
                 break
               else
-                echo "Waiting for Docker to start... ($i/10)"
+                echo "Waiting for Docker to start... ($i/15)"
                 sleep 2
               fi
             done
+            
+            # Verify daemon.json is still correct after restart
+            echo "Verifying daemon.json after restart:"
+            sudo cat /etc/docker/daemon.json
             
             # Recreate buildx builder to pick up new daemon configuration
             echo "Recreating buildx builder to pick up daemon configuration..."
@@ -101,6 +114,10 @@ jobs:
             docker buildx create --name builder --use --driver docker-container --driver-opt network=host 2>/dev/null || \
             docker buildx create --name builder --use 2>/dev/null || \
             echo "Using default buildx builder"
+            
+            # Force Docker to reload configuration by sending SIGHUP (if supported)
+            echo "Attempting to reload Docker configuration..."
+            sudo killall -HUP dockerd 2>/dev/null || sudo pkill -HUP dockerd 2>/dev/null || echo "HUP signal not supported"
           else
             echo "Warning: Docker daemon configuration requires sudo. Registry may fail if not configured."
             echo "Please manually configure /etc/docker/daemon.json with:"
@@ -120,7 +137,7 @@ jobs:
 
       - name: Verify Docker registry configuration
         run: |
-          echo "Verifying Docker daemon configuration..."
+          echo "=== Verifying Docker daemon configuration ==="
           if [ -f /etc/docker/daemon.json ]; then
             echo "Docker daemon.json contents:"
             sudo cat /etc/docker/daemon.json
@@ -128,6 +145,12 @@ jobs:
             echo "Checking if insecure-registries is configured..."
             if grep -q "insecure-registries" /etc/docker/daemon.json; then
               echo "✓ insecure-registries found in daemon.json"
+              if grep -q "${{ env.REGISTRY_HOST }}" /etc/docker/daemon.json; then
+                echo "✓ Registry ${{ env.REGISTRY_HOST }} found in insecure-registries"
+              else
+                echo "✗ Registry ${{ env.REGISTRY_HOST }} NOT found in insecure-registries"
+                exit 1
+              fi
             else
               echo "✗ insecure-registries NOT found in daemon.json"
               exit 1
@@ -137,9 +160,25 @@ jobs:
             exit 1
           fi
           
-          # Verify Docker is using the configuration
-          echo "Docker daemon info:"
-          docker info 2>&1 | grep -i "insecure" || echo "Note: Docker info may not show insecure registries"
+          # Verify Docker daemon is actually using the configuration
+          echo ""
+          echo "=== Docker daemon configuration ==="
+          docker info 2>&1 | head -20
+          
+          # Test registry connectivity
+          echo ""
+          echo "=== Testing registry connectivity ==="
+          REGISTRY_HOST="${{ env.REGISTRY_HOST }}"
+          REGISTRY_URL="${{ env.REGISTRY_URL }}"
+          
+          # Test HTTP connection
+          echo "Testing HTTP connection to registry..."
+          curl -v --max-time 5 ${REGISTRY_URL}/v2/ 2>&1 | head -20 || echo "HTTP connection test failed (may be expected)"
+          
+          # Verify Docker can reach the registry
+          echo ""
+          echo "Testing Docker registry access..."
+          docker pull alpine:latest 2>&1 | head -5 || true
 
       - name: Build and push Docker image
         run: |
@@ -152,7 +191,7 @@ jobs:
           
           # Build the image and load it into local Docker daemon
           # This ensures the image is available for docker push which respects insecure-registries
-          echo "Building Docker image with buildx..."
+          echo "=== Building Docker image with buildx ==="
           docker buildx build \
             --platform linux/amd64 \
             --tag ${REGISTRY}/${IMAGE_NAME}:${SHA} \
@@ -163,18 +202,38 @@ jobs:
             .
           
           # Verify image was built
+          echo ""
+          echo "=== Verifying built images ==="
           docker images | grep "${IMAGE_NAME}" || exit 1
           
-          # Push using docker push (which respects daemon.json insecure-registries)
-          echo "Pushing image to registry using docker push (respects insecure-registries)..."
-          docker push ${REGISTRY}/${IMAGE_NAME}:${SHA}
-          docker push ${REGISTRY}/${IMAGE_NAME}:latest
+          # Double-check daemon.json before pushing
+          echo ""
+          echo "=== Final daemon.json check before push ==="
+          sudo cat /etc/docker/daemon.json
           
+          # Push using docker push (which respects daemon.json insecure-registries)
+          echo ""
+          echo "=== Pushing image to registry ==="
+          echo "Using registry: ${REGISTRY}"
+          echo "Image: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+          
+          # Set DOCKER_CONTENT_TRUST=0 to disable content trust (may help with registry issues)
+          export DOCKER_CONTENT_TRUST=0
+          
+          # Try pushing with verbose output
+          echo "Pushing ${REGISTRY}/${IMAGE_NAME}:${SHA}..."
+          docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1
+          
+          echo "Pushing ${REGISTRY}/${IMAGE_NAME}:latest..."
+          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1
+          
+          echo ""
           echo "✓ Image pushed successfully: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_STEP_LOG_MAX_SIZE: 50000000
           BUILDKIT_STEP_LOG_MAX_SPEED: 100000000
+          DOCKER_CONTENT_TRUST: 0
 
       - name: Set image tag
         id: image
