@@ -360,6 +360,14 @@ jobs:
               fi
             done
           fi
+
+          if [ -n "$KUBECONFIG_PATH" ] && [ -f "$KUBECONFIG_PATH" ]; then
+            if head -1 "$KUBECONFIG_PATH" | grep -qE '^[A-Za-z0-9+/=]+$' && base64 --decode "$KUBECONFIG_PATH" > /tmp/kubeconfig_decoded 2>/dev/null; then
+              echo "Detected base64-encoded kubeconfig. Decoding..."
+              KUBECONFIG_PATH="/tmp/kubeconfig_decoded"
+              echo "✓ Using decoded kubeconfig at $KUBECONFIG_PATH"
+            fi
+          fi
           
           # Verify kubeconfig is valid
           if [ -z "$KUBECONFIG_PATH" ] || [ ! -f "$KUBECONFIG_PATH" ]; then
@@ -380,7 +388,7 @@ jobs:
           echo ""
           echo "=== Verifying kubeconfig ==="
           export KUBECONFIG="$KUBECONFIG_PATH"
-          
+
           # Check if file is valid YAML/JSON
           if ! head -1 "$KUBECONFIG_PATH" | grep -q "apiVersion\|kind"; then
             echo "✗ ERROR: kubeconfig file is not valid (missing apiVersion/kind)"
