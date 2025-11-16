@@ -471,23 +471,24 @@ jobs:
           fi
           
           # Create terraform.tfvars file - Write line by line to ensure proper formatting
-          echo "kubeconfig_path = \"${{ steps.kubeconfig.outputs.kubeconfig_path }}\"" > terraform.tfvars
-          echo "project_name = \"${PROJECT_NAME}\"" >> terraform.tfvars
-          echo "namespace = \"${NAMESPACE}\"" >> terraform.tfvars
-          echo "domain = \"${DOMAIN}\"" >> terraform.tfvars
-          echo "base_path = \"${BASE_PATH}\"" >> terraform.tfvars
-          echo "image = \"${{ steps.image.outputs.image_tag }}\"" >> terraform.tfvars
-          echo "replicas_web = ${REPLICAS_WEB}" >> terraform.tfvars
+          # Use printf for absolute control over output
+          printf 'kubeconfig_path = "%s"\n' "${{ steps.kubeconfig.outputs.kubeconfig_path }}" > terraform.tfvars
+          printf 'project_name = "%s"\n' "${PROJECT_NAME}" >> terraform.tfvars
+          printf 'namespace = "%s"\n' "${NAMESPACE}" >> terraform.tfvars
+          printf 'domain = "%s"\n' "${DOMAIN}" >> terraform.tfvars
+          printf 'base_path = "%s"\n' "${BASE_PATH}" >> terraform.tfvars
+          printf 'image = "%s"\n' "${{ steps.image.outputs.image_tag }}" >> terraform.tfvars
+          printf 'replicas_web = %s\n' "${REPLICAS_WEB}" >> terraform.tfvars
           
-          # Write resources_web block - ALWAYS use default format
-          echo "resources_web = {" >> terraform.tfvars
-          echo "  limits_cpu    = \"1000m\"" >> terraform.tfvars
-          echo "  limits_memory = \"1Gi\"" >> terraform.tfvars
-          echo "  requests_cpu    = \"200m\"" >> terraform.tfvars
-          echo "  requests_memory = \"256Mi\"" >> terraform.tfvars
-          echo "}" >> terraform.tfvars
+          # Write resources_web block - ALWAYS use default format with printf
+          printf 'resources_web = {\n' >> terraform.tfvars
+          printf '  limits_cpu    = "1000m"\n' >> terraform.tfvars
+          printf '  limits_memory = "1Gi"\n' >> terraform.tfvars
+          printf '  requests_cpu    = "200m"\n' >> terraform.tfvars
+          printf '  requests_memory = "256Mi"\n' >> terraform.tfvars
+          printf '}\n' >> terraform.tfvars
           
-          echo "secret_data = ${SECRET_DATA}" >> terraform.tfvars
+          printf 'secret_data = %s\n' "${SECRET_DATA}" >> terraform.tfvars
           
           # Verify file was created correctly
           echo ""
@@ -495,12 +496,17 @@ jobs:
           cat terraform.tfvars
           echo ""
           echo "=== Verifying HCL syntax ==="
-          if grep -q "resources_web = {" terraform.tfvars && grep -q "^}" terraform.tfvars; then
-            echo "✓ resources_web block format verified"
-          else
-            echo "✗ ERROR: resources_web block format incorrect!"
+          if ! grep -q "^resources_web = {" terraform.tfvars; then
+            echo "✗ ERROR: resources_web opening brace missing!"
+            echo "File content around resources_web:"
+            grep -A 5 "resources_web" terraform.tfvars || echo "resources_web not found!"
             exit 1
           fi
+          if ! grep -q "^}" terraform.tfvars; then
+            echo "✗ ERROR: resources_web closing brace missing!"
+            exit 1
+          fi
+          echo "✓ resources_web block format verified"
           
           echo ""
           echo "✓ Terraform variables file created"
