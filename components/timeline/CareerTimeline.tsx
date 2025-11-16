@@ -11,7 +11,7 @@ export function CareerTimeline() {
   const careerItems = dataService.getCareerItems()
 
   return (
-    <section className="section">
+    <section className="section" id="timeline">
       <h2>Career</h2>
       <div className="altline" id="altline">
         {careerItems.map((item, index) => (
