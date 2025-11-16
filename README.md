@@ -1,156 +1,85 @@
-# NI2FAA Profile - Next.js Portfolio
+# ni2faa-profile
 
-A modern portfolio website built with Next.js 16, featuring an alternating timeline design with the EOY Copper theme.
+Personal portfolio application built with Next.js 16, React 19, and TypeScript. It showcases an introduction, career timeline, and skills, with a small, maintainable architecture and production-ready delivery via Docker, Kubernetes, and GitHub Actions.
 
 ## Features
+- Next.js App Router with `app/` directory
+- Theming via `ThemeService` with persisted palette
+- Structured data services for skills and career timeline
+- Optimized Docker multi-stage build with standalone output
+- Kubernetes manifests for Deployment, Service, and Ingress (Traefik + cert-manager)
+- GitHub Actions for image build/push and manifest bumping
 
-- **Next.js 16** with App Router
-- **TypeScript** for type safety
-- **SOLID Principles** - Well-structured component architecture
-- **EOY Copper Theme** - Beautiful copper color palette
-- **Responsive Design** - Mobile-first approach
-- **Accessibility** - WCAG compliant with proper ARIA attributes
-- **Performance Optimized** - Static generation and optimized images
+## Quick Start
+- Prerequisites: Node `>=18.17` (Node 20+ recommended), npm
+- Install dependencies: `npm ci`
+- Start dev server: `npm run dev` then open `http://localhost:3000`
+
+## Scripts
+- `npm run dev` – start development server
+- `npm run build` – build production bundle
+- `npm run start` – run production server
+- `npm run lint` – run Next.js ESLint
 
 ## Project Structure
+- `app/` – App Router pages, layout, global styles
+- `components/` – Intro, Skills, Timeline, Theme provider
+- `lib/` – Theme and Storage services
+- `data/` – Data services providing skills and career items
+- `infra/` – Kubernetes manifests and Argo CD application
+- `.github/` – CI workflows and helper scripts
 
-```
-├── app/
-│   ├── layout.tsx          # Root layout with metadata
-│   ├── page.tsx            # Home page composition
-│   └── globals.css          # Global styles and theme
-├── components/
-│   ├── intro/
-│   │   └── IntroSection.tsx
-│   ├── timeline/
-│   │   ├── CareerTimeline.tsx
-│   │   ├── TimelineItem.tsx
-│   │   └── DetailsToggle.tsx
-│   ├── skills/
-│   │   ├── SkillsSection.tsx
-│   │   └── SkillCard.tsx
-│   └── theme/
-│       └── ThemeProvider.tsx
-└── prototypes/             # Original HTML prototype
-```
+## Configuration
+- `next.config.js` sets `output: 'standalone'` and allows remote images from `cdn.jsdelivr.net` and `cdn.simpleicons.org`
+- Environment variables: see `.env.example` (used by helper scripts); the app does not require runtime secrets
 
-## SOLID Principles Applied
-
-- **Single Responsibility**: Each component has one clear purpose
-- **Open/Closed**: Components can be extended without modification
-- **Liskov Substitution**: Components follow consistent interfaces
-- **Interface Segregation**: Minimal, focused prop interfaces
-- **Dependency Inversion**: Components depend on abstractions
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm or yarn
-
-### Installation
+## Docker
+Build and run the production image locally:
 
 ```bash
-npm install
+docker build -t ni2faa/me:local .
+docker run --rm -p 3000:3000 ni2faa/me:local
+# open http://localhost:3000
 ```
 
-### Development
+The image uses Next.js standalone output and runs as a non-root user on port `3000`.
+
+## Kubernetes
+Manifests are in `infra/manifests`:
+- `deployment.yml` – uses image `${REGISTRY_HOST_IP}:5000/ni2faa/me:<tag>` and exposes container port `3000`
+- `service.yml` – `ClusterIP` service on port `80` targeting `3000`
+- `ingress.yml` – Traefik ingress with TLS via cert-manager for host `ni2faa.ddns.net`
+
+Apply to a cluster:
 
 ```bash
-npm run dev
+kubectl apply -f infra/manifests/
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Ensure your private registry is reachable and your cluster has Traefik and cert-manager configured.
 
-### Build
+## CI/CD
+Workflow: `.github/workflows/deploy.yml`
+- Triggers on pushes to `main` and `feat/infra`
+- Builds the Docker image on a self-hosted runner
+- Pushes to `${REGISTRY_HOST_IP}:5000`
+- Updates `infra/manifests/deployment.yml` with the new tag and commits the change back
 
-```bash
-npm run build
-```
+Required secret:
+- `REGISTRY_HOST_IP` – e.g., `192.168.1.48`
 
-### Production
+## Argo CD (optional)
+The Argo CD Application (`infra/argocd/application.yml`) points to this repo and syncs the manifests:
+- `repoURL: https://github.com/ni2faa/me.git`
+- `targetRevision: feat/infra`
+- `path: infra/manifests`
 
-```bash
-npm start
-```
+Update `targetRevision` to `main` if you want Argo CD to track the default branch.
 
-## Theme
-
-The project uses the **EOY Copper** theme by default, which provides:
-- Warm copper tones
-- High contrast for readability
-- Modern glassmorphism effects
-- Smooth animations
-
-The theme can be changed by modifying the `data-palette` attribute in `app/layout.tsx` or through the `ThemeProvider` component.
-
-## Technologies
-
-- **Next.js 16.0.3** - React framework
-- **React 19** - UI library
-- **TypeScript** - Type safety
-- **CSS Custom Properties** - Theme system
-
-## CI/CD and Deployment
-
-This project uses automated CI/CD with GitHub Actions for managing Kubernetes resources.
-
-### Workflow Overview
-
-**Deployment Strategy:**
-
-1. **Secrets/Config** (Local Management)
-   - Managed locally via Terraform
-   - Use `infra/local/terraform.tfvars` for your k3s configuration
-   - Run `terraform apply -var-file=local/terraform.tfvars` manually from your machine
-   - Secrets stay on your local machine, never in GitHub
-
-2. **Application Deployment** (Automatic via GitHub Actions)
-   - **`deploy.yml`** runs automatically on push to `main`
-   - Builds Docker image and pushes to GitHub Container Registry
-   - Deploys complete application (deployment, service, ingress)
-   - Uses GitHub Secrets for deployment configuration
-
-### Automated Deployment Flow
-
-When you push code to the `main` branch:
-1. **Docker Build**: The Next.js application is built into a Docker image
-2. **Container Registry**: The image is pushed to GitHub Container Registry (ghcr.io)
-3. **Terraform Deployment**: Complete infrastructure is deployed to Kubernetes
-4. **Kubernetes Rollout**: The new image is deployed to your cluster
-
-### Setting Up CI/CD
-
-Before the automated deployment can work, you need to configure GitHub Secrets:
-
-1. Go to your repository **Settings** → **Secrets and variables** → **Actions**
-2. Add all required secrets as documented in [`.github/SECRETS.md`](.github/SECRETS.md)
-3. Key secrets needed:
-   - `KUBECONFIG` - Base64-encoded kubeconfig file
-   - `TF_VAR_project_name` - Project identifier
-   - `TF_VAR_namespace` - Kubernetes namespace
-   - `TF_VAR_domain` - Domain for ingress
-   - `TF_VAR_replicas_web` - Number of replicas
-   - `TF_VAR_resources_web` - Resource limits (JSON)
-   - `TF_VAR_secret_data` - Application secrets (JSON)
-
-See [`.github/SECRETS.md`](.github/SECRETS.md) for detailed instructions.
-
-### Manual Deployment
-
-For manual deployment, see the [Terraform Infrastructure Guide](infra/TERRAFORM.md).
-
-### Container Registry
-
-Images are automatically pushed to:
-```
-ghcr.io/ni2faa/me:latest
-ghcr.io/ni2faa/me:<commit-sha>
-```
+## Documentation
+- `docs/designs.md` – portfolio design options
+- `docs/roadmap.md` – implementation roadmap
+- `docs/testing-reports.md` – responsive and accessibility testing notes
 
 ## License
-
-MIT
-
-
+Proprietary. Contact `ni2faa@gmail.com` for usage permissions.
