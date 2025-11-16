@@ -6,6 +6,10 @@ on:
       - main
       - feat/infra
 
+permissions:
+  contents: write   
+
+
 env:
   REGISTRY_PORT: 5000
 
