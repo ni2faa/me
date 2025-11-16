@@ -457,8 +457,8 @@ jobs:
           
           # Create terraform.tfvars file - Write line by line to ensure proper formatting
           # Use printf for absolute control over output
-          printf 'kubeconfig_path = "%s"\n' "${{ steps.kubeconfig.outputs.kubeconfig_path }}" > terraform.tfvars
-          printf 'project_name = "%s"\n' "${PROJECT_NAME}" >> terraform.tfvars
+          # Note: kubeconfig_path is NOT included - Terraform will use KUBECONFIG env var automatically
+          printf 'project_name = "%s"\n' "${PROJECT_NAME}" > terraform.tfvars
           printf 'namespace = "%s"\n' "${NAMESPACE}" >> terraform.tfvars
           printf 'domain = "%s"\n' "${DOMAIN}" >> terraform.tfvars
           printf 'base_path = "%s"\n' "${BASE_PATH}" >> terraform.tfvars
@@ -594,7 +594,7 @@ jobs:
       - name: Verify Infrastructure Deployment
         working-directory: ./infra
         env:
-          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+          KUBECONFIG: ${{ env.KUBECONFIG_PATH }}
         run: |
           echo "=== Verifying Infrastructure Deployment ==="
           # Read values from terraform.tfvars
