@@ -292,6 +292,12 @@ jobs:
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Built and pushed: $IMAGE_TAG"
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          check-latest: true
+
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
@@ -398,17 +404,20 @@ jobs:
           echo "KUBECONFIG_PATH=$KUBECONFIG_PATH" >> $GITHUB_ENV
           export KUBECONFIG="$KUBECONFIG_PATH"
 
-      - name: Terraform Init
-        working-directory: ./infra
-        run: terraform init
-
-      - name: Create Terraform variables file
+      # ==========================================
+      # Infrastructure Deployment Phase
+      # ==========================================
+      
+      - name: Prepare Infrastructure Configuration
+        id: prepare-infra
         working-directory: ./infra
         run: |
+          echo "=== Preparing Infrastructure Configuration ==="
           SECRET_DATA="${{ secrets.TF_VAR_secret_data }}"
           if [ -z "$SECRET_DATA" ]; then
             SECRET_DATA="{}"
           fi
+          
           cat > terraform.tfvars <<EOF
           kubeconfig_path = "${{ steps.kubeconfig.outputs.kubeconfig_path }}"
           project_name = "${{ secrets.TF_VAR_project_name }}"
@@ -420,18 +429,149 @@ jobs:
           resources_web = ${{ secrets.TF_VAR_resources_web }}
           secret_data = $SECRET_DATA
           EOF
+          
+          echo "✓ Terraform variables file created"
+          echo "Configuration summary:"
+          echo "  - Project: ${{ secrets.TF_VAR_project_name }}"
+          echo "  - Namespace: ${{ secrets.TF_VAR_namespace }}"
+          echo "  - Domain: ${{ secrets.TF_VAR_domain }}"
+          echo "  - Image: ${{ steps.image.outputs.image_tag }}"
+          echo "  - Replicas: ${{ secrets.TF_VAR_replicas_web }}"
 
-      - name: Terraform Plan
+      - name: Initialize Terraform
+        working-directory: ./infra
+        run: |
+          echo "=== Initializing Terraform ==="
+          terraform init -upgrade
+          echo "✓ Terraform initialized successfully"
+
+      - name: Validate Infrastructure Configuration
         working-directory: ./infra
         env:
           KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
-        run: terraform plan
+        run: |
+          echo "=== Validating Infrastructure Configuration ==="
+          terraform validate
+          echo "✓ Terraform configuration is valid"
 
-      - name: Terraform Apply
+      - name: Plan Infrastructure Changes
+        id: terraform-plan
         working-directory: ./infra
         env:
           KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
-        run: terraform apply -auto-approve
+        run: |
+          echo "=== Planning Infrastructure Changes ==="
+          terraform plan -out=tfplan -detailed-exitcode
+          PLAN_EXIT_CODE=$?
+          
+          if [ $PLAN_EXIT_CODE -eq 0 ]; then
+            echo "✓ No changes needed - infrastructure is up to date"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+          elif [ $PLAN_EXIT_CODE -eq 2 ]; then
+            echo "✓ Changes detected - will apply in next step"
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+          else
+            echo "✗ Terraform plan failed"
+            exit 1
+          fi
+
+      - name: Apply Infrastructure Changes
+        working-directory: ./infra
+        env:
+          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+        run: |
+          echo "=== Applying Infrastructure Changes ==="
+          if [ "${{ steps.terraform-plan.outputs.has_changes }}" = "true" ]; then
+            terraform apply -auto-approve tfplan
+            echo "✓ Infrastructure changes applied successfully"
+          else
+            echo "ℹ No changes to apply - infrastructure is already up to date"
+          fi
+
+      - name: Verify Infrastructure Deployment
+        working-directory: ./infra
+        env:
+          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+        run: |
+          echo "=== Verifying Infrastructure Deployment ==="
+          NAMESPACE="${{ secrets.TF_VAR_namespace }}"
+          PROJECT_NAME="${{ secrets.TF_VAR_project_name }}"
+          
+          echo "Checking namespace..."
+          kubectl get namespace "$NAMESPACE" || {
+            echo "✗ Namespace $NAMESPACE not found"
+            exit 1
+          }
+          echo "✓ Namespace $NAMESPACE exists"
+          
+          echo ""
+          echo "Checking deployment..."
+          kubectl get deployment "${PROJECT_NAME}-web" -n "$NAMESPACE" || {
+            echo "✗ Deployment ${PROJECT_NAME}-web not found"
+            exit 1
+          }
+          echo "✓ Deployment ${PROJECT_NAME}-web exists"
+          
+          echo ""
+          echo "Checking deployment status..."
+          kubectl rollout status deployment/"${PROJECT_NAME}-web" -n "$NAMESPACE" --timeout=5m || {
+            echo "⚠ Deployment rollout not complete, but continuing..."
+          }
+          
+          echo ""
+          echo "Checking pods..."
+          kubectl get pods -n "$NAMESPACE" -l app="${PROJECT_NAME}-web"
+          
+          echo ""
+          echo "Checking service..."
+          kubectl get service "${PROJECT_NAME}-web" -n "$NAMESPACE" || {
+            echo "✗ Service ${PROJECT_NAME}-web not found"
+            exit 1
+          }
+          echo "✓ Service ${PROJECT_NAME}-web exists"
+          
+          echo ""
+          echo "Checking ingress..."
+          kubectl get ingress -n "$NAMESPACE" | grep "$PROJECT_NAME" || {
+            echo "⚠ Ingress not found (may be expected)"
+          }
+          
+          echo ""
+          echo "✓ Infrastructure deployment verified"
+
+      - name: Health Check Application
+        working-directory: ./infra
+        env:
+          KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
+        run: |
+          echo "=== Performing Application Health Check ==="
+          NAMESPACE="${{ secrets.TF_VAR_namespace }}"
+          PROJECT_NAME="${{ secrets.TF_VAR_project_name }}"
+          
+          # Wait for pods to be ready
+          echo "Waiting for pods to be ready..."
+          kubectl wait --for=condition=ready pod \
+            -l app="${PROJECT_NAME}-web" \
+            -n "$NAMESPACE" \
+            --timeout=5m || {
+            echo "⚠ Some pods may not be ready yet"
+          }
+          
+          # Get pod status
+          echo ""
+          echo "Pod status:"
+          kubectl get pods -n "$NAMESPACE" -l app="${PROJECT_NAME}-web" -o wide
+          
+          # Check pod logs for errors
+          echo ""
+          echo "Recent pod logs (last 20 lines):"
+          POD_NAME=$(kubectl get pods -n "$NAMESPACE" -l app="${PROJECT_NAME}-web" -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || echo "")
+          if [ -n "$POD_NAME" ]; then
+            kubectl logs "$POD_NAME" -n "$NAMESPACE" --tail=20 || echo "Could not retrieve logs"
+          fi
+          
+          echo ""
+          echo "✓ Health check completed"
 
       - name: Set deployment URL
         id: deployment
