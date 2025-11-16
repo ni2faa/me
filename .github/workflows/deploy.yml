@@ -1,4 +1,5 @@
 name: Build and Deploy Application
+# Triggered on push to main or feat/infra branches
 
 on:
   push:
