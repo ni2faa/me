@@ -10,7 +10,7 @@ export function IntroSection() {
           <p className="intro-eyebrow">Full Stack Engineer</p>
           <h1 className="intro-title">Wongsakorn Rodngampring</h1>
           <p className="intro-body">
-            I design and build backend APIs, cloud infrastructure, and modern web &amp; mobile apps —
+            I design and build backend APIs, cloud infrastructure, and modern web & mobile apps —
             with a strong focus on Go, Node.js, Next.js, and Flutter running on AWS.
           </p>
           <div className="intro-contact">

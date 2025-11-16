@@ -22,7 +22,7 @@ export class SkillsDataService {
   getSkillCategories(): SkillCategory[] {
     return [
       {
-        heading: 'Programming Languages &amp; Backend',
+        heading: 'Programming Languages & Backend',
         skills: [
           {
             name: 'Golang',
@@ -45,7 +45,7 @@ export class SkillsDataService {
         ],
       },
       {
-        heading: 'Frontend &amp; Mobile',
+        heading: 'Frontend & Mobile',
         skills: [
           {
             name: 'React',
@@ -103,7 +103,7 @@ export class SkillsDataService {
         ],
       },
       {
-        heading: 'DevOps &amp; Cloud',
+        heading: 'DevOps & Cloud',
         skills: [
           {
             name: 'Docker',
