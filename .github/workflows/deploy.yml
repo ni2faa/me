@@ -18,7 +18,7 @@ jobs:
       REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}      # e.g. 192.168.1.48
       REGISTRY_HOST: ${{ secrets.REGISTRY_HOST_IP }}:5000
       IMAGE_NAME: ${{ github.repository }}                  # e.g. ni2faa/me
-      DEPLOYMENT_FILE: infra/manifets/deployment.yml
+      DEPLOYMENT_FILE: infra/manifests/deployment.yml
 
     steps:
       - name: Checkout code
