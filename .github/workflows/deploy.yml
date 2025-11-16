@@ -46,10 +46,30 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: "latest"
+      - name: Install kubectl (self-hosted)
+        run: |
+          echo "Installing kubectl..."
+          OS=$(uname | tr '[:upper:]' '[:lower:]')
+          ARCH=$(uname -m)
+          case "$ARCH" in
+            x86_64) ARCH="amd64" ;;
+            aarch64|arm64) ARCH="arm64" ;;
+            *) echo "Unknown arch $ARCH, defaulting to amd64"; ARCH="amd64" ;;
+          esac
+          VERSION=$(curl -L -s https://dl.k8s.io/release/stable.txt)
+          URL="https://dl.k8s.io/release/${VERSION}/bin/${OS}/${ARCH}/kubectl"
+          echo "Downloading: $URL"
+          curl -L -o /tmp/kubectl "$URL"
+          chmod +x /tmp/kubectl
+          if sudo -n true 2>/dev/null; then
+            sudo mv /tmp/kubectl /usr/local/bin/kubectl
+          else
+            mkdir -p "$HOME/bin"
+            mv /tmp/kubectl "$HOME/bin/kubectl"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+          echo "kubectl client version:"
+          kubectl version --client --request-timeout=5s || { echo "Failed to run kubectl"; exit 1; }
 
       - name: Setup Node.js for validation
         uses: actions/setup-node@v4
