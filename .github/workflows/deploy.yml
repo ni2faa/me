@@ -305,24 +305,98 @@ jobs:
       - name: Configure kubectl
         id: kubeconfig
         run: |
+          echo "=== Searching for kubeconfig ==="
           KUBECONFIG_PATH=""
+          
+          # Method 1: Use KUBECONFIG secret if provided
           if [ -n "${{ secrets.KUBECONFIG }}" ]; then
+            echo "Found KUBECONFIG secret, using it..."
             mkdir -p ~/.kube
             echo "${{ secrets.KUBECONFIG }}" | base64 -d > ~/.kube/config
             chmod 600 ~/.kube/config
             KUBECONFIG_PATH=~/.kube/config
+            echo "✓ Using kubeconfig from KUBECONFIG secret"
+          
+          # Method 2: Check common k3s locations
           elif [ -f /etc/rancher/k3s/k3s.yaml ]; then
+            echo "Found k3s.yaml at /etc/rancher/k3s/k3s.yaml"
             mkdir -p ~/.kube
             cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
             chmod 600 ~/.kube/config
+            # Update server URL for self-hosted runner
             sed -i 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || sed -i '' 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || true
             KUBECONFIG_PATH=~/.kube/config
+            echo "✓ Using kubeconfig from /etc/rancher/k3s/k3s.yaml"
+          
+          # Method 3: Check if ~/.kube/config already exists
+          elif [ -f ~/.kube/config ]; then
+            echo "Found existing ~/.kube/config"
+            KUBECONFIG_PATH=~/.kube/config
+            echo "✓ Using existing ~/.kube/config"
+          
+          # Method 4: Check KUBECONFIG environment variable
+          elif [ -n "$KUBECONFIG" ] && [ -f "$KUBECONFIG" ]; then
+            echo "Found kubeconfig from KUBECONFIG environment variable: $KUBECONFIG"
+            KUBECONFIG_PATH="$KUBECONFIG"
+            echo "✓ Using kubeconfig from KUBECONFIG env var"
+          
+          # Method 5: Try to find k3s config in alternative locations
           else
-            echo "Error: No kubeconfig found"
+            echo "Searching for k3s config in alternative locations..."
+            for path in "/root/.kube/config" "/home/runner/.kube/config" "/var/lib/rancher/k3s/agent/kubeconfig.yaml"; do
+              if [ -f "$path" ]; then
+                echo "Found kubeconfig at: $path"
+                mkdir -p ~/.kube
+                cp "$path" ~/.kube/config
+                chmod 600 ~/.kube/config
+                KUBECONFIG_PATH=~/.kube/config
+                echo "✓ Using kubeconfig from $path"
+                break
+              fi
+            done
+          fi
+          
+          # Verify kubeconfig is valid
+          if [ -n "$KUBECONFIG_PATH" ] && [ -f "$KUBECONFIG_PATH" ]; then
+            echo ""
+            echo "=== Verifying kubeconfig ==="
+            export KUBECONFIG="$KUBECONFIG_PATH"
+            if kubectl cluster-info &>/dev/null; then
+              echo "✓ kubeconfig is valid and can connect to cluster"
+              kubectl cluster-info | head -1
+            else
+              echo "⚠ Warning: kubeconfig found but cannot connect to cluster"
+              echo "This may be OK if cluster is not accessible from runner"
+            fi
+          else
+            echo ""
+            echo "✗ ERROR: No kubeconfig found"
+            echo ""
+            echo "Please configure kubeconfig using one of these methods:"
+            echo "1. Set KUBECONFIG secret in GitHub (Settings > Secrets > Actions)"
+            echo "   - Base64 encode your kubeconfig: cat ~/.kube/config | base64"
+            echo "   - Add as secret named 'KUBECONFIG'"
+            echo ""
+            echo "2. Ensure k3s.yaml exists at: /etc/rancher/k3s/k3s.yaml"
+            echo "   - For k3s: sudo cat /etc/rancher/k3s/k3s.yaml"
+            echo ""
+            echo "3. Place kubeconfig at: ~/.kube/config on the runner"
+            echo ""
+            echo "Checked locations:"
+            echo "  - /etc/rancher/k3s/k3s.yaml"
+            echo "  - ~/.kube/config"
+            echo "  - /root/.kube/config"
+            echo "  - /home/runner/.kube/config"
+            echo "  - /var/lib/rancher/k3s/agent/kubeconfig.yaml"
             exit 1
           fi
+          
+          echo ""
+          echo "=== kubeconfig Configuration ==="
+          echo "KUBECONFIG_PATH: $KUBECONFIG_PATH"
           echo "kubeconfig_path=$KUBECONFIG_PATH" >> $GITHUB_OUTPUT
           echo "KUBECONFIG_PATH=$KUBECONFIG_PATH" >> $GITHUB_ENV
+          export KUBECONFIG="$KUBECONFIG_PATH"
 
       - name: Terraform Init
         working-directory: ./infra
