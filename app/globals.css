@@ -106,11 +106,14 @@ button {
 
 .nav a {
   padding: 6px 10px;
-  border-radius: 10px
+  border-radius: 10px;
+  cursor: pointer
 }
 
-.nav a:hover {
-  background-color: color-mix(in oklab, rgb(var(--primary)) 10%, rgb(var(--bg)))
+.nav a:hover,
+.nav a:focus-visible {
+  text-underline-offset: 2px;
+  padding: 10px;
 }
 
 .nav-toggle {
@@ -763,11 +766,11 @@ main.container {
 }
 
 .site-header.scrolling .header-inner {
-  background: linear-gradient(120deg, color-mix(in oklab, rgb(var(--bg)) 96%, transparent), color-mix(in oklab, rgb(var(--bg)) 88%, transparent));
-  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 22%, transparent);
   box-shadow: 0 8px 24px color-mix(in oklab, rgb(var(--bg)) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
   backdrop-filter: blur(10px) saturate(1.2);
   transform: translateY(2px);
+  border-radius: 0px 0px 10px 10px;
 }
 
 .site-header.pinned {
@@ -776,14 +779,10 @@ main.container {
 }
 
 .site-header.pinned .header-inner {
+  box-shadow: 0 18px 40px color-mix(in oklab, rgb(24 16 12 / 76%) 85%, transparent), 0 0 0 1px color-mix(in oklab, #00000057 90%, transparent) inset;
+  background: none;
   border-radius: 0 0 10px 10px;
-  background: transparent;
-  /* background: linear-gradient(120deg, color-mix(in oklab, rgb(var(--bg)) 92%, transparent), color-mix(in oklab, rgb(var(--bg)) 80%, transparent)); */
-  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 28%, transparent);
-  box-shadow:
-    0 18px 40px color-mix(in oklab, rgb(var(--bg)) 85%, transparent),
-    0 0 0 1px color-mix(in oklab, rgb(var(--bg)) 90%, transparent) inset;
-  
+  border: none;
 }
 
 /* Section wrappers */

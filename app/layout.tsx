@@ -89,6 +89,8 @@ export default function RootLayout({
   return (
     <html lang="en" data-theme="light" data-palette="eoy-copper">
       <head>
+        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+        <link rel="mask-icon" href="/favicon.svg" color="#D27D55" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
