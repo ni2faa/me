@@ -1,32 +1,32 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: demo-app
+  name: me
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: demo-app
+      app: me
   template:
     metadata:
       labels:
-        app: demo-app
+        app: me
     spec:
       containers:
-        - name: demo-app
-          image: 192.168.1.48:5000/demo-app:dev
+        - name: me
+          image: 192.168.1.48:5000/me:latest
           ports:
             - containerPort: 8080
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: demo-app
+  name: me
   namespace: default
 spec:
   selector:
-    app: demo-app
+    app: me
   ports:
     - port: 80
       targetPort: 8080
