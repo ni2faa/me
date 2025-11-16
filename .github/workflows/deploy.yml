@@ -14,11 +14,11 @@ jobs:
     runs-on: self-hosted
     environment: production
 
-    # Job-level env so we can mix secrets + static
     env:
-      REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}
+      REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}      # e.g. 192.168.1.48
       REGISTRY_HOST: ${{ secrets.REGISTRY_HOST_IP }}:5000
-      IMAGE_NAME: ${{ github.repository }}  # e.g. ni2faa/me
+      IMAGE_NAME: ${{ github.repository }}                  # e.g. ni2faa/me
+      DEPLOYMENT_FILE: infra/manifets/deployment.yml
 
     steps:
       - name: Checkout code
@@ -55,3 +55,27 @@ jobs:
 
           echo "Pushing $LATEST_TAG"
           docker push "$LATEST_TAG"
+
+      # ====== DEPLOYMENT (GitOps) PART ======
+
+      - name: Update image in deployment.yml
+        run: |
+          FULL_IMAGE="${REGISTRY_HOST}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }}"
+          FILE="${DEPLOYMENT_FILE}"
+
+          echo "Updating $FILE to use image: $FULL_IMAGE"
+
+          # Replace the image line that contains your repo "ni2faa/me"
+          sed -i "s#image: .*${IMAGE_NAME}:.*#image: $FULL_IMAGE#" "$FILE"
+
+          echo "Result image line:"
+          grep 'image:' "$FILE" || true
+
+      - name: Commit and push manifest changes
+        run: |
+          git config user.name  "github-actions"
+          git config user.email "actions@github.com"
+
+          git add "${DEPLOYMENT_FILE}"
+          git commit -m "chore: bump image to ${REGISTRY_HOST}/${IMAGE_NAME}:${{ steps.vars.outputs.TAG }} [skip ci]" || echo "No changes to commit"
+          git push

@@ -15,20 +15,6 @@ spec:
     spec:
       containers:
         - name: me
-          image: 192.168.1.48:5000/me:latest
+          image: 192.168.1.48:5000/ni2faa/me:latest   # <-- initial value, will be auto-updated
           ports:
             - containerPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: me
-  namespace: default
-spec:
-  selector:
-    app: me
-  ports:
-    - port: 80
-      targetPort: 8080
-      protocol: TCP
-  type: ClusterIP
