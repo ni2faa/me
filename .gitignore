@@ -25,7 +25,10 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env
 .env*.local
+# Allow .env.example to be tracked (template file)
+# !.env.example
 
 # vercel
 .vercel
