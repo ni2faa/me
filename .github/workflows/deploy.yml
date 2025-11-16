@@ -104,18 +104,31 @@ jobs:
           
           # Restart Docker to apply configuration
           echo "Restarting Docker daemon..."
-          sudo systemctl restart docker || sudo service docker restart || true
+          # Stop Docker first to ensure clean restart
+          sudo systemctl stop docker 2>/dev/null || sudo service docker stop 2>/dev/null || true
+          sleep 2
+          # Start Docker
+          sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || true
+          # Also try full restart as fallback
+          sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || true
           sleep 5
           
           # Wait for Docker to be ready
-          for i in {1..10}; do
+          for i in {1..15}; do
             if docker info > /dev/null 2>&1; then
               echo "Docker is ready"
+              # Verify configuration is loaded (Docker info may not show insecure-registries, but that's OK)
+              echo "Docker version: $(docker version --format '{{.Server.Version}}' 2>/dev/null || echo 'unknown')"
               break
             fi
-            echo "Waiting for Docker... ($i/10)"
+            echo "Waiting for Docker... ($i/15)"
             sleep 2
           done
+          
+          # Verify daemon.json is still correct
+          echo ""
+          echo "Verifying daemon.json after restart:"
+          sudo cat /etc/docker/daemon.json
 
       - name: Verify registry connectivity and Docker config
         run: |
@@ -229,8 +242,39 @@ jobs:
           echo "Image: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
           echo "Note: Docker should use HTTP (configured via insecure-registries)"
           
-          # Push with HTTP (insecure-registries handles this)
-          docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} || exit 1
+          # Try docker push first
+          if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1 | tee /tmp/push.log; then
+            echo "✓ Successfully pushed ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+          else
+            # Check if error is HTTPS-related
+            if grep -q "HTTPS\|TLS\|certificate\|http: server gave HTTP response to HTTPS" /tmp/push.log; then
+              echo ""
+              echo "✗ Docker push failed with HTTPS error despite insecure-registries"
+              echo "Attempting workaround: forcing Docker to reload configuration..."
+              
+              # Force Docker to reload configuration
+              sudo killall -HUP dockerd 2>/dev/null || true
+              sleep 3
+              
+              # Try one more time after reload
+              if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
+                echo "✓ Successfully pushed after config reload"
+              else
+                echo ""
+                echo "✗ Docker push still failing. Docker may not support HTTP registries properly."
+                echo "Please ensure:"
+                echo "  1. Docker daemon is restarted after daemon.json changes"
+                echo "  2. Registry ${REGISTRY} is accessible via HTTP"
+                echo "  3. Consider using a registry that supports HTTPS or configure proper certificates"
+                exit 1
+              fi
+            else
+              echo "✗ Docker push failed with non-HTTPS error"
+              exit 1
+            fi
+          fi
+          
+          # Push latest tag
           docker push ${REGISTRY}/${IMAGE_NAME}:latest || echo "Warning: Failed to push latest tag"
           
           echo "✓ Successfully pushed: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
