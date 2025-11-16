@@ -489,8 +489,10 @@ jobs:
           # Handle custom resources_web if provided
           if [ -n "$RESOURCES_WEB" ]; then
             # Remove default resources_web block and replace
-            sed -i '/resources_web = {/,/^}/d' terraform.tfvars
-            sed -i "/replicas_web/a resources_web = ${RESOURCES_WEB}" terraform.tfvars
+            sed -i.bak '/resources_web = {/,/^}/d' terraform.tfvars
+            rm -f terraform.tfvars.bak
+            # Insert custom resources_web after replicas_web line
+            awk -v rw="${RESOURCES_WEB}" '/replicas_web/ { print; print "resources_web = " rw; next } 1' terraform.tfvars > terraform.tfvars.tmp && mv terraform.tfvars.tmp terraform.tfvars
           fi
           
           echo ""
