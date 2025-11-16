@@ -470,30 +470,32 @@ jobs:
             SECRET_DATA="{}"
           fi
           
-          # Create terraform.tfvars file - NO HEREDOCS, pure echo
-          echo 'kubeconfig_path = "'"${{ steps.kubeconfig.outputs.kubeconfig_path }}"'"' > terraform.tfvars
-          echo 'project_name = "'"${PROJECT_NAME}"'"' >> terraform.tfvars
-          echo 'namespace = "'"${NAMESPACE}"'"' >> terraform.tfvars
-          echo 'domain = "'"${DOMAIN}"'"' >> terraform.tfvars
-          echo 'base_path = "'"${BASE_PATH}"'"' >> terraform.tfvars
-          echo 'image = "'"${{ steps.image.outputs.image_tag }}"'"' >> terraform.tfvars
-          echo 'replicas_web = '"${REPLICAS_WEB}" >> terraform.tfvars
-          echo 'resources_web = {' >> terraform.tfvars
-          echo '  limits_cpu    = "1000m"' >> terraform.tfvars
-          echo '  limits_memory = "1Gi"' >> terraform.tfvars
-          echo '  requests_cpu    = "200m"' >> terraform.tfvars
-          echo '  requests_memory = "256Mi"' >> terraform.tfvars
-          echo '}' >> terraform.tfvars
-          echo 'secret_data = '"${SECRET_DATA}" >> terraform.tfvars
-          
-          # Handle custom resources_web if provided
-          if [ -n "$RESOURCES_WEB" ]; then
-            # Remove default resources_web block and replace
-            sed -i.bak '/resources_web = {/,/^}/d' terraform.tfvars
-            rm -f terraform.tfvars.bak
-            # Insert custom resources_web after replicas_web line
-            awk -v rw="${RESOURCES_WEB}" '/replicas_web/ { print; print "resources_web = " rw; next } 1' terraform.tfvars > terraform.tfvars.tmp && mv terraform.tfvars.tmp terraform.tfvars
-          fi
+          # Create terraform.tfvars file - NO HEREDOCS, pure echo with proper escaping
+          {
+            echo "kubeconfig_path = \"${{ steps.kubeconfig.outputs.kubeconfig_path }}\""
+            echo "project_name = \"${PROJECT_NAME}\""
+            echo "namespace = \"${NAMESPACE}\""
+            echo "domain = \"${DOMAIN}\""
+            echo "base_path = \"${BASE_PATH}\""
+            echo "image = \"${{ steps.image.outputs.image_tag }}\""
+            echo "replicas_web = ${REPLICAS_WEB}"
+            
+            # Write resources_web block
+            if [ -n "$RESOURCES_WEB" ]; then
+              # User provided custom resources_web
+              echo "resources_web = ${RESOURCES_WEB}"
+            else
+              # Use default resources_web
+              echo "resources_web = {"
+              echo "  limits_cpu    = \"1000m\""
+              echo "  limits_memory = \"1Gi\""
+              echo "  requests_cpu    = \"200m\""
+              echo "  requests_memory = \"256Mi\""
+              echo "}"
+            fi
+            
+            echo "secret_data = ${SECRET_DATA}"
+          } > terraform.tfvars
           
           echo ""
           echo "✓ Terraform variables file created"
