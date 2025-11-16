@@ -3,12 +3,18 @@ name: Build and Deploy Application
 on:
   push:
     branches:
+      - main
       - feat/infra
 
 env:
-  # Use host IP for registry (update REGISTRY_HOST_IP with your first server IP)
-  # Or use a secret: ${{ secrets.REGISTRY_HOST_IP }}
-  REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP || '192.168.1.100' }}  # Update with your first server IP
+  # Registry Configuration:
+  # REGISTRY_HOST_IP can be set as:
+  # 1. Environment secret (recommended): Settings > Environments > production > Secrets
+  # 2. Repository secret: Settings > Secrets and variables > Actions
+  # Environment secrets take precedence over repository secrets
+  # 
+  # If not set, defaults to 192.168.1.100 (update this if needed)
+  REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP || '192.168.1.100' }}
   REGISTRY_PORT: 5000
   REGISTRY_URL: http://${REGISTRY_HOST_IP}:${REGISTRY_PORT}
   REGISTRY_HOST: ${REGISTRY_HOST_IP}:${REGISTRY_PORT}
@@ -17,10 +23,25 @@ env:
 jobs:
   build-and-deploy:
     runs-on: self-hosted
+    # Use production environment for main and feat/infra branches
+    environment: 
+      name: production
+      url: ${{ steps.deployment.outputs.url || '' }}
     permissions:
       contents: read
       packages: write
     steps:
+      - name: Display deployment info
+        run: |
+          echo "=== Deployment Information ==="
+          echo "Environment: production"
+          echo "Branch: ${{ github.ref_name }}"
+          echo "Commit: ${{ github.sha }}"
+          echo "Repository: ${{ github.repository }}"
+          echo ""
+          echo "Note: Environment secrets and variables can be configured at:"
+          echo "Settings > Environments > production"
+
       - name: Checkout code
         uses: actions/checkout@v4
 
@@ -96,14 +117,51 @@ jobs:
             sleep 2
           done
 
+      - name: Verify registry connectivity and Docker config
+        run: |
+          REGISTRY_URL="${{ env.REGISTRY_URL }}"
+          REGISTRY_HOST="${{ env.REGISTRY_HOST }}"
+          
+          echo "=== Registry Configuration ==="
+          echo "REGISTRY_HOST_IP: ${{ env.REGISTRY_HOST_IP }}"
+          echo "REGISTRY_URL: ${REGISTRY_URL}"
+          echo "REGISTRY_HOST: ${REGISTRY_HOST}"
+          echo ""
+          
+          echo "=== Verifying Docker daemon.json ==="
+          if [ -f /etc/docker/daemon.json ]; then
+            echo "Current daemon.json:"
+            sudo cat /etc/docker/daemon.json
+            if grep -q "$REGISTRY_HOST" /etc/docker/daemon.json; then
+              echo "✓ Registry ${REGISTRY_HOST} found in insecure-registries"
+            else
+              echo "✗ WARNING: Registry ${REGISTRY_HOST} NOT found in insecure-registries"
+            fi
+          else
+            echo "✗ WARNING: /etc/docker/daemon.json does not exist"
+          fi
+          echo ""
+          
+          echo "=== Testing registry HTTP connectivity ==="
+          echo "Testing: ${REGISTRY_URL}/v2/"
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>/dev/null || echo "000")
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
+            echo "✓ Registry is accessible via HTTP (HTTP code: $HTTP_CODE)"
+          elif [ "$HTTP_CODE" = "000" ]; then
+            echo "✗ ERROR: Cannot connect to registry at ${REGISTRY_URL}"
+            echo "  - Check if REGISTRY_HOST_IP is correct"
+            echo "  - Check if registry is running and accessible from runner"
+            echo "  - Check network connectivity: ping ${{ env.REGISTRY_HOST_IP }}"
+            exit 1
+          else
+            echo "⚠ Registry returned HTTP code: $HTTP_CODE (may still work)"
+          fi
+
       - name: Log in to registry
         run: |
           REGISTRY_URL="${{ env.REGISTRY_URL }}"
           REGISTRY_USER="${{ secrets.REGISTRY_USERNAME || 'admin' }}"
           REGISTRY_PASS="${{ secrets.REGISTRY_PASSWORD }}"
-          
-          echo "Testing registry connectivity..."
-          curl -f --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -5 || echo "Registry connectivity check"
           
           echo "Logging in to registry..."
           echo "$REGISTRY_PASS" | docker login ${REGISTRY_URL} -u "$REGISTRY_USER" --password-stdin || {
@@ -148,9 +206,28 @@ jobs:
           echo "=== Verifying built images ==="
           docker images | grep "${IMAGE_NAME}" || exit 1
           
+          echo ""
+          echo "=== Final verification before push ==="
+          echo "Verifying Docker daemon.json configuration..."
+          if [ -f /etc/docker/daemon.json ]; then
+            if grep -q "${REGISTRY}" /etc/docker/daemon.json; then
+              echo "✓ Registry ${REGISTRY} is configured in insecure-registries"
+            else
+              echo "✗ ERROR: Registry ${REGISTRY} NOT in insecure-registries"
+              echo "Current daemon.json:"
+              sudo cat /etc/docker/daemon.json
+              exit 1
+            fi
+          else
+            echo "✗ ERROR: /etc/docker/daemon.json does not exist"
+            exit 1
+          fi
+          
+          echo ""
           echo "=== Pushing image to registry ==="
           echo "Registry: ${REGISTRY}"
           echo "Image: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+          echo "Note: Docker should use HTTP (configured via insecure-registries)"
           
           # Push with HTTP (insecure-registries handles this)
           docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} || exit 1
@@ -237,13 +314,30 @@ jobs:
           KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
         run: terraform apply -auto-approve
 
+      - name: Set deployment URL
+        id: deployment
+        run: |
+          # Construct deployment URL from domain
+          DOMAIN="${{ secrets.TF_VAR_domain }}"
+          BASE_PATH="${{ secrets.TF_VAR_base_path }}"
+          if [ "$BASE_PATH" = "/" ]; then
+            DEPLOYMENT_URL="https://${DOMAIN}"
+          else
+            DEPLOYMENT_URL="https://${DOMAIN}${BASE_PATH}"
+          fi
+          echo "url=${DEPLOYMENT_URL}" >> $GITHUB_OUTPUT
+          echo "Deployment URL: ${DEPLOYMENT_URL}"
+
       - name: Deployment Summary
         run: |
           echo "## Full Application Deployment Complete 🚀" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** \`production\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "**Image:** \`${{ steps.image.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Deployment URL:** ${{ steps.deployment.outputs.url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed Resources:**" >> $GITHUB_STEP_SUMMARY
           echo "- Namespace: \`${{ secrets.TF_VAR_namespace }}\`" >> $GITHUB_STEP_SUMMARY
