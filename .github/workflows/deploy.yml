@@ -414,22 +414,43 @@ jobs:
         run: |
           echo "=== Preparing Infrastructure Configuration ==="
           
-          # Validate required secrets
-          if [ -z "${{ secrets.TF_VAR_project_name }}" ]; then
-            echo "✗ Error: TF_VAR_project_name secret is required"
-            exit 1
+          # Extract project name from repository (fallback to default)
+          REPO_NAME="${{ github.repository }}"
+          DEFAULT_PROJECT_NAME="${REPO_NAME#*/}"  # Extract name after owner/
+          
+          # Use secrets or defaults
+          PROJECT_NAME="${{ secrets.TF_VAR_project_name }}"
+          if [ -z "$PROJECT_NAME" ]; then
+            PROJECT_NAME="$DEFAULT_PROJECT_NAME"
+            echo "⚠ Warning: TF_VAR_project_name not set, using default: $PROJECT_NAME"
           fi
-          if [ -z "${{ secrets.TF_VAR_namespace }}" ]; then
-            echo "✗ Error: TF_VAR_namespace secret is required"
-            exit 1
+          
+          NAMESPACE="${{ secrets.TF_VAR_namespace }}"
+          if [ -z "$NAMESPACE" ]; then
+            NAMESPACE="$PROJECT_NAME"
+            echo "⚠ Warning: TF_VAR_namespace not set, using default: $NAMESPACE"
           fi
-          if [ -z "${{ secrets.TF_VAR_domain }}" ]; then
+          
+          DOMAIN="${{ secrets.TF_VAR_domain }}"
+          if [ -z "$DOMAIN" ]; then
             echo "✗ Error: TF_VAR_domain secret is required"
+            echo ""
+            echo "Please set the following GitHub Secrets:"
+            echo "  - TF_VAR_domain: Your domain (e.g., ni2faa.ddns.net)"
+            echo ""
+            echo "Optional but recommended:"
+            echo "  - TF_VAR_project_name: $PROJECT_NAME (currently using default)"
+            echo "  - TF_VAR_namespace: $NAMESPACE (currently using default)"
+            echo ""
+            echo "See .github/SECRETS.md for full documentation"
+            echo "Or run: .github/scripts/setup-secrets.sh"
             exit 1
           fi
-          if [ -z "${{ secrets.TF_VAR_base_path }}" ]; then
-            echo "✗ Error: TF_VAR_base_path secret is required"
-            exit 1
+          
+          BASE_PATH="${{ secrets.TF_VAR_base_path }}"
+          if [ -z "$BASE_PATH" ]; then
+            BASE_PATH="/"
+            echo "⚠ Warning: TF_VAR_base_path not set, using default: $BASE_PATH"
           fi
           
           # Set defaults for optional values
@@ -458,10 +479,10 @@ jobs:
           # Create terraform.tfvars file
           cat > terraform.tfvars <<EOF
           kubeconfig_path = "${{ steps.kubeconfig.outputs.kubeconfig_path }}"
-          project_name = "${{ secrets.TF_VAR_project_name }}"
-          namespace = "${{ secrets.TF_VAR_namespace }}"
-          domain = "${{ secrets.TF_VAR_domain }}"
-          base_path = "${{ secrets.TF_VAR_base_path }}"
+          project_name = "${PROJECT_NAME}"
+          namespace = "${NAMESPACE}"
+          domain = "${DOMAIN}"
+          base_path = "${BASE_PATH}"
           image = "${{ steps.image.outputs.image_tag }}"
           replicas_web = ${REPLICAS_WEB}
           resources_web = ${RESOURCES_WEB}
@@ -472,10 +493,10 @@ jobs:
           echo "✓ Terraform variables file created"
           echo ""
           echo "=== Configuration Summary ==="
-          echo "  Project: ${{ secrets.TF_VAR_project_name }}"
-          echo "  Namespace: ${{ secrets.TF_VAR_namespace }}"
-          echo "  Domain: ${{ secrets.TF_VAR_domain }}"
-          echo "  Base Path: ${{ secrets.TF_VAR_base_path }}"
+          echo "  Project: ${PROJECT_NAME}"
+          echo "  Namespace: ${NAMESPACE}"
+          echo "  Domain: ${DOMAIN}"
+          echo "  Base Path: ${BASE_PATH}"
           echo "  Image: ${{ steps.image.outputs.image_tag }}"
           echo "  Replicas: ${REPLICAS_WEB}"
           echo "  Resources: ${RESOURCES_WEB}"
@@ -562,8 +583,9 @@ jobs:
           KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
         run: |
           echo "=== Verifying Infrastructure Deployment ==="
-          NAMESPACE="${{ secrets.TF_VAR_namespace }}"
-          PROJECT_NAME="${{ secrets.TF_VAR_project_name }}"
+          # Read values from terraform.tfvars
+          NAMESPACE=$(grep "^namespace" terraform.tfvars | cut -d'"' -f2)
+          PROJECT_NAME=$(grep "^project_name" terraform.tfvars | cut -d'"' -f2)
           
           echo "Checking namespace..."
           kubectl get namespace "$NAMESPACE" || {
@@ -613,8 +635,9 @@ jobs:
           KUBECONFIG: ${{ steps.kubeconfig.outputs.kubeconfig_path }}
         run: |
           echo "=== Performing Application Health Check ==="
-          NAMESPACE="${{ secrets.TF_VAR_namespace }}"
-          PROJECT_NAME="${{ secrets.TF_VAR_project_name }}"
+          # Read values from terraform.tfvars
+          NAMESPACE=$(grep "^namespace" terraform.tfvars | cut -d'"' -f2)
+          PROJECT_NAME=$(grep "^project_name" terraform.tfvars | cut -d'"' -f2)
           
           # Wait for pods to be ready
           echo "Waiting for pods to be ready..."
@@ -643,10 +666,11 @@ jobs:
 
       - name: Set deployment URL
         id: deployment
+        working-directory: ./infra
         run: |
           # Construct deployment URL from domain
-          DOMAIN="${{ secrets.TF_VAR_domain }}"
-          BASE_PATH="${{ secrets.TF_VAR_base_path }}"
+          DOMAIN=$(grep "^domain" terraform.tfvars | cut -d'"' -f2)
+          BASE_PATH=$(grep "^base_path" terraform.tfvars | cut -d'"' -f2)
           if [ "$BASE_PATH" = "/" ]; then
             DEPLOYMENT_URL="https://${DOMAIN}"
           else
@@ -667,7 +691,10 @@ jobs:
           echo "**Deployment URL:** ${{ steps.deployment.outputs.url }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Deployed Resources:**" >> $GITHUB_STEP_SUMMARY
-          echo "- Namespace: \`${{ secrets.TF_VAR_namespace }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Deployment: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Service: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
-          echo "- Ingress: \`${{ secrets.TF_VAR_project_name }}\`" >> $GITHUB_STEP_SUMMARY
+          cd ./infra
+          NAMESPACE=$(grep "^namespace" terraform.tfvars | cut -d'"' -f2)
+          PROJECT_NAME=$(grep "^project_name" terraform.tfvars | cut -d'"' -f2)
+          echo "- Namespace: \`${NAMESPACE}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Deployment: \`${PROJECT_NAME}-web\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Service: \`${PROJECT_NAME}-web\`" >> $GITHUB_STEP_SUMMARY
+          echo "- Ingress: \`${PROJECT_NAME}\`" >> $GITHUB_STEP_SUMMARY
