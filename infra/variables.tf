@@ -1,6 +1,7 @@
 variable "kubeconfig_path" {
   type        = string
-  description = "Path to kubeconfig for target cluster"
+  description = "Path to kubeconfig for target cluster (optional - Terraform will auto-detect from KUBECONFIG env var if not provided)"
+  default     = null
 }
 
 variable "project_name" {
