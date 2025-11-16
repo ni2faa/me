@@ -57,6 +57,20 @@ jobs:
           node-version: '24'
           check-latest: true
 
+      - name: Cache Node.js modules (validation)
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
+
+      - name: Install dependencies for validation
+        run: |
+          npm ci --ignore-scripts
+        env:
+          NODE_ENV: development
+
       - name: Pre-build validation
         run: |
           echo "Running pre-build validation"
