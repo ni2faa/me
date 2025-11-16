@@ -364,8 +364,8 @@ select {
 }
 
 .section {
-  content-visibility: auto;
-  contain-intrinsic-size: 600px
+  content-visibility: visible;
+  contain-intrinsic-size: 600px;
 }
 
 .hero {
