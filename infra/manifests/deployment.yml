@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: me
-          image: 192.168.1.48:5000/ni2faa/me:latest   # <-- initial value, will be auto-updated
+          image: 192.168.1.48:5000/ni2faa/me:381dd07
           ports:
             - containerPort: 8080
