@@ -6,8 +6,12 @@ on:
       - main
 
 env:
-  REGISTRY_URL: http://registry.registry.svc.cluster.local:5000
-  REGISTRY_HOST: registry.registry.svc.cluster.local:5000
+  # Use host IP for registry (update REGISTRY_HOST_IP with your first server IP)
+  # Or use a secret: ${{ secrets.REGISTRY_HOST_IP }}
+  REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP || '192.168.1.100' }}  # Update with your first server IP
+  REGISTRY_PORT: 5000
+  REGISTRY_URL: http://${REGISTRY_HOST_IP}:${REGISTRY_PORT}
+  REGISTRY_HOST: ${REGISTRY_HOST_IP}:${REGISTRY_PORT}
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -16,7 +20,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,196 +29,79 @@ jobs:
         with:
           driver-opts: |
             network=host
-          # Use docker-container driver to ensure it respects daemon.json
           driver: docker
 
-      - name: Configure Docker for local HTTP registry
+      - name: Configure Docker for host registry
         run: |
-          # Configure Docker to use HTTP (not HTTPS) for local registry
-          # This is required because the local k3s registry uses HTTP on port 5000
-          
           REGISTRY_HOST="${{ env.REGISTRY_HOST }}"
           
-          # Try to configure insecure registry in daemon.json (requires sudo)
-          if command -v sudo &> /dev/null; then
-            # Ensure /etc/docker directory exists
-            sudo mkdir -p /etc/docker
+          # Configure insecure registry for HTTP access
+          sudo mkdir -p /etc/docker
+          
+          if [ -f /etc/docker/daemon.json ]; then
+            sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak 2>/dev/null || true
             
-            if [ -f /etc/docker/daemon.json ]; then
-              # Backup first
-              sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.bak 2>/dev/null || true
-              
-              # Use jq if available, otherwise use sed
-              if command -v jq &> /dev/null; then
-                # Add insecure-registries if not already present
-                if ! jq -e '.insecure-registries' /etc/docker/daemon.json > /dev/null 2>&1; then
-                  jq '. + {"insecure-registries": ["'$REGISTRY_HOST'"]}' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
-                elif ! jq -e '.insecure-registries[] | select(. == "'$REGISTRY_HOST'")' /etc/docker/daemon.json > /dev/null 2>&1; then
-                  jq '.insecure-registries += ["'$REGISTRY_HOST'"]' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
-                else
-                  echo "Registry $REGISTRY_HOST already configured in insecure-registries"
-                fi
-              else
-                # Simple sed approach - check if registry already exists
-                if grep -q "$REGISTRY_HOST" /etc/docker/daemon.json 2>/dev/null; then
-                  echo "Registry $REGISTRY_HOST already configured"
-                elif ! grep -q "insecure-registries" /etc/docker/daemon.json; then
-                  # Add insecure-registries to existing JSON
+            if command -v jq &> /dev/null; then
+              # Use jq to safely update daemon.json
+              if ! jq -e '.insecure-registries' /etc/docker/daemon.json > /dev/null 2>&1; then
+                jq '. + {"insecure-registries": ["'$REGISTRY_HOST'"]}' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
+              elif ! jq -e '.insecure-registries[] | select(. == "'$REGISTRY_HOST'")' /etc/docker/daemon.json > /dev/null 2>&1; then
+                jq '.insecure-registries += ["'$REGISTRY_HOST'"]' /etc/docker/daemon.json | sudo tee /etc/docker/daemon.json > /dev/null
+              fi
+            else
+              # Simple sed approach
+              if ! grep -q "$REGISTRY_HOST" /etc/docker/daemon.json 2>/dev/null; then
+                if ! grep -q "insecure-registries" /etc/docker/daemon.json; then
                   sudo sed -i 's/}/,\n  "insecure-registries": ["'$REGISTRY_HOST'"]\n}/' /etc/docker/daemon.json
                 else
-                  # Append to existing insecure-registries array
                   sudo sed -i 's/"insecure-registries": \[/"insecure-registries": ["'$REGISTRY_HOST'", /' /etc/docker/daemon.json
                 fi
               fi
-            else
-              # Create new daemon.json with insecure-registries
-              echo '{"insecure-registries": ["'$REGISTRY_HOST'"]}' | sudo tee /etc/docker/daemon.json > /dev/null
-              echo "Created /etc/docker/daemon.json with insecure-registries configuration"
             fi
-            
-            # Verify the configuration
-            echo "Current Docker daemon.json configuration:"
-            sudo cat /etc/docker/daemon.json || echo "Failed to read daemon.json"
-            
-            # Restart Docker daemon to apply changes
-            echo "Restarting Docker daemon..."
-            # Stop Docker first
-            sudo systemctl stop docker 2>/dev/null || sudo service docker stop 2>/dev/null || true
+          else
+            echo '{"insecure-registries": ["'$REGISTRY_HOST'"]}' | sudo tee /etc/docker/daemon.json > /dev/null
+          fi
+          
+          echo "Docker daemon.json configured:"
+          sudo cat /etc/docker/daemon.json
+          
+          # Restart Docker to apply configuration
+          echo "Restarting Docker daemon..."
+          sudo systemctl restart docker || sudo service docker restart || true
+          sleep 5
+          
+          # Wait for Docker to be ready
+          for i in {1..10}; do
+            if docker info > /dev/null 2>&1; then
+              echo "Docker is ready"
+              break
+            fi
+            echo "Waiting for Docker... ($i/10)"
             sleep 2
-            # Start Docker
-            sudo systemctl start docker 2>/dev/null || sudo service docker start 2>/dev/null || echo "Docker start failed"
-            # Also try full restart
-            sudo systemctl restart docker 2>/dev/null || sudo service docker restart 2>/dev/null || echo "Docker restart skipped (may need manual restart)"
-            
-            # Wait for Docker to fully restart and load configuration
-            echo "Waiting for Docker daemon to fully restart and load configuration..."
-            sleep 5
-            
-            # Verify Docker is running and configuration is loaded
-            for i in {1..15}; do
-              if docker info > /dev/null 2>&1; then
-                echo "Docker is running (attempt $i)"
-                # Give it a moment more to fully load configuration
-                sleep 2
-                break
-              else
-                echo "Waiting for Docker to start... ($i/15)"
-                sleep 2
-              fi
-            done
-            
-            # Verify daemon.json is still correct after restart
-            echo "Verifying daemon.json after restart:"
-            sudo cat /etc/docker/daemon.json
-            
-            # Recreate buildx builder to pick up new daemon configuration
-            echo "Recreating buildx builder to pick up daemon configuration..."
-            docker buildx rm builder 2>/dev/null || true
-            docker buildx create --name builder --use --driver docker-container --driver-opt network=host 2>/dev/null || \
-            docker buildx create --name builder --use 2>/dev/null || \
-            echo "Using default buildx builder"
-            
-            # Force Docker to reload configuration by sending SIGHUP (if supported)
-            echo "Attempting to reload Docker configuration..."
-            sudo killall -HUP dockerd 2>/dev/null || sudo pkill -HUP dockerd 2>/dev/null || echo "HUP signal not supported"
-          else
-            echo "Warning: Docker daemon configuration requires sudo. Registry may fail if not configured."
-            echo "Please manually configure /etc/docker/daemon.json with:"
-            echo '{'
-            echo '  "insecure-registries": ["'$REGISTRY_HOST'"]'
-            echo '}'
-            exit 1
-          fi
+          done
 
-      - name: Install skopeo (for better HTTP registry support)
+      - name: Log in to registry
         run: |
-          # Install skopeo if available (better tool for pushing to HTTP registries)
-          if command -v apt-get &> /dev/null; then
-            sudo apt-get update -qq && sudo apt-get install -y skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
-          elif command -v yum &> /dev/null; then
-            sudo yum install -y skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
-          elif command -v apk &> /dev/null; then
-            sudo apk add --no-cache skopeo 2>/dev/null || echo "Skopeo installation skipped (not critical)"
-          else
-            echo "Package manager not found, skopeo will not be installed"
-          fi
-        continue-on-error: true
-
-      - name: Log in to local registry
-        run: |
-          # Test registry connectivity via HTTP first
-          echo "Testing registry connectivity via HTTP..."
           REGISTRY_URL="${{ env.REGISTRY_URL }}"
-          curl -v --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -10 || echo "Registry connectivity test"
+          REGISTRY_USER="${{ secrets.REGISTRY_USERNAME || 'admin' }}"
+          REGISTRY_PASS="${{ secrets.REGISTRY_PASSWORD }}"
           
-          # Local registry may not require authentication
-          # Note: docker login might still try HTTPS, but we'll test HTTP connectivity
-          echo "Attempting Docker login (may fail if registry doesn't require auth)..."
-          docker login ${{ env.REGISTRY_URL }} --username="" --password="" 2>&1 || \
-          docker login ${{ env.REGISTRY_HOST }} --username="" --password="" 2>&1 || \
-          echo "Registry login skipped (local registry may not require auth)"
+          echo "Testing registry connectivity..."
+          curl -f --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -5 || echo "Registry connectivity check"
+          
+          echo "Logging in to registry..."
+          echo "$REGISTRY_PASS" | docker login ${REGISTRY_URL} -u "$REGISTRY_USER" --password-stdin || {
+            echo "Warning: Registry login failed (may not require auth)"
+          }
         continue-on-error: true
-
-      - name: Verify Docker registry configuration
-        run: |
-          echo "=== Verifying Docker daemon configuration ==="
-          if [ -f /etc/docker/daemon.json ]; then
-            echo "Docker daemon.json contents:"
-            sudo cat /etc/docker/daemon.json
-            echo ""
-            echo "Checking if insecure-registries is configured..."
-            if grep -q "insecure-registries" /etc/docker/daemon.json; then
-              echo "✓ insecure-registries found in daemon.json"
-              if grep -q "${{ env.REGISTRY_HOST }}" /etc/docker/daemon.json; then
-                echo "✓ Registry ${{ env.REGISTRY_HOST }} found in insecure-registries"
-              else
-                echo "✗ Registry ${{ env.REGISTRY_HOST }} NOT found in insecure-registries"
-                exit 1
-              fi
-            else
-              echo "✗ insecure-registries NOT found in daemon.json"
-              exit 1
-            fi
-          else
-            echo "✗ /etc/docker/daemon.json does not exist"
-            exit 1
-          fi
-          
-          # Verify Docker daemon is actually using the configuration
-          echo ""
-          echo "=== Docker daemon configuration ==="
-          docker info 2>&1 | head -20
-          
-          # Test registry HTTP connectivity
-          echo ""
-          echo "=== Testing registry HTTP connectivity ==="
-          REGISTRY_URL="${{ env.REGISTRY_URL }}"
-          echo "Testing: ${REGISTRY_URL}/v2/"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>/dev/null || echo "000")
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "401" ] || [ "$HTTP_CODE" = "404" ]; then
-            echo "✓ Registry is accessible via HTTP (HTTP code: $HTTP_CODE)"
-          else
-            echo "⚠ Registry HTTP test returned code: $HTTP_CODE (may still work with Docker)"
-          fi
-          
-          # Force Docker to reload configuration
-          echo ""
-          echo "=== Reloading Docker configuration ==="
-          sudo killall -HUP dockerd 2>/dev/null || sudo pkill -HUP dockerd 2>/dev/null || echo "HUP signal not supported"
-          sleep 2
 
       - name: Build and push Docker image
         run: |
-          # Build and push to local HTTP registry
-          # Strategy: Build with buildx, then push with docker push (which respects daemon.json insecure-registries)
-          
           REGISTRY="${{ env.REGISTRY_HOST }}"
           IMAGE_NAME="${{ env.IMAGE_NAME }}"
           SHA="${{ github.sha }}"
           
-          # Build the image and load it into local Docker daemon
-          # This ensures the image is available for docker push which respects insecure-registries
-          echo "=== Building Docker image with buildx ==="
+          echo "=== Building Docker image ==="
           docker buildx build \
             --platform linux/amd64 \
             --tag ${REGISTRY}/${IMAGE_NAME}:${SHA} \
@@ -225,115 +111,18 @@ jobs:
             --cache-to type=gha,mode=max \
             .
           
-          # Verify image was built
-          echo ""
           echo "=== Verifying built images ==="
           docker images | grep "${IMAGE_NAME}" || exit 1
           
-          # Double-check daemon.json before pushing
-          echo ""
-          echo "=== Final daemon.json check before push ==="
-          sudo cat /etc/docker/daemon.json
-          
-          # Test registry connectivity first
-          echo ""
-          echo "=== Testing registry connectivity ==="
-          REGISTRY_URL="${{ env.REGISTRY_URL }}"
-          echo "Testing HTTP connection to ${REGISTRY_URL}..."
-          curl -v --connect-timeout 5 ${REGISTRY_URL}/v2/ 2>&1 | head -20 || echo "Registry connectivity test completed"
-          
-          # Push using docker push (which respects daemon.json insecure-registries)
-          echo ""
           echo "=== Pushing image to registry ==="
-          echo "Using registry: ${REGISTRY}"
+          echo "Registry: ${REGISTRY}"
           echo "Image: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
           
-          # Set DOCKER_CONTENT_TRUST=0 to disable content trust
-          export DOCKER_CONTENT_TRUST=0
+          # Push with HTTP (insecure-registries handles this)
+          docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} || exit 1
+          docker push ${REGISTRY}/${IMAGE_NAME}:latest || echo "Warning: Failed to push latest tag"
           
-          # Verify Docker daemon configuration one more time
-          echo "Docker daemon insecure-registries:"
-          docker info 2>/dev/null | grep -i "insecure" || echo "Could not verify insecure-registries in docker info"
-          
-          # Docker push is still trying HTTPS despite insecure-registries
-          # The issue is that insecure-registries only skips TLS verification, but Docker still tries HTTPS first
-          # We need to use a workaround: use skopeo or docker save + registry API, or configure Docker differently
-          
-          echo ""
-          echo "=== Attempting to push using Docker (may still try HTTPS) ==="
-          echo "Note: If this fails with HTTPS errors, we'll use an alternative method"
-          
-          # Try docker push first (it might work if insecure-registries is properly configured)
-          if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
-            echo "✓ Successfully pushed ${REGISTRY}/${IMAGE_NAME}:${SHA} using docker push"
-          else
-            echo "✗ Docker push failed (likely HTTPS issue)"
-            echo ""
-            echo "=== Using alternative method: docker save + skopeo or registry API ==="
-            
-            # Check if skopeo is available (better tool for pushing to registries)
-            if command -v skopeo &> /dev/null; then
-              echo "Using skopeo to push image (handles HTTP registries better)..."
-              # Create a temporary local tag for the image
-              LOCAL_TAG="temp-push-${SHA}"
-              docker tag ${REGISTRY}/${IMAGE_NAME}:${SHA} ${LOCAL_TAG}:latest
-              
-              REGISTRY_URL="${{ env.REGISTRY_URL }}"
-              echo "Pushing to HTTP registry: ${REGISTRY_URL}"
-              
-              # Use skopeo to copy from local Docker daemon to HTTP registry
-              # skopeo can handle HTTP registries better than docker push
-              # Try with HTTP URL explicitly (skopeo supports http:// in the URL)
-              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY_URL}/${IMAGE_NAME}:${SHA} || {
-                echo "Skopeo copy with HTTP URL failed, trying without protocol..."
-                # Try without http:// (skopeo should detect HTTP from insecure-registries or config)
-                skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY}/${IMAGE_NAME}:${SHA}
-              }
-              
-              # Also push latest tag
-              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY_URL}/${IMAGE_NAME}:latest 2>/dev/null || \
-              skopeo copy --dest-tls-verify=false docker-daemon:${LOCAL_TAG}:latest docker://${REGISTRY}/${IMAGE_NAME}:latest 2>/dev/null || \
-              echo "Warning: Failed to push latest tag with skopeo"
-              
-              # Clean up temporary tag
-              docker rmi ${LOCAL_TAG}:latest 2>/dev/null || true
-              echo "✓ Successfully pushed using skopeo"
-            else
-              echo "Skopeo not available, trying docker save + manual registry API push..."
-              echo "This is complex, so we'll try a simpler approach first..."
-              
-              # Alternative: Try to use docker push with DOCKER_CONTENT_TRUST=0 and see if it works
-              # Or try to configure Docker to use HTTP by default
-              echo "Attempting to force HTTP by using registry API directly..."
-              
-              # This is complex - let's try one more time with docker push after ensuring config is loaded
-              echo "Re-checking Docker daemon configuration..."
-              sudo cat /etc/docker/daemon.json
-              
-              # Force Docker to reload config
-              sudo killall -HUP dockerd 2>/dev/null || true
-              sleep 3
-              
-              # Try push one more time
-              echo "Retrying docker push after config reload..."
-              if docker push ${REGISTRY}/${IMAGE_NAME}:${SHA} 2>&1; then
-                echo "✓ Successfully pushed after config reload"
-              else
-                echo "✗ Still failing. The registry might require HTTPS with proper certificates."
-                echo "Please check if the registry is actually HTTP or HTTPS."
-                echo "If it's HTTPS, you may need to add the registry's CA certificate to Docker."
-                exit 1
-              fi
-            fi
-          fi
-          
-          # Push latest tag
-          echo ""
-          echo "Pushing ${REGISTRY}/${IMAGE_NAME}:latest..."
-          docker push ${REGISTRY}/${IMAGE_NAME}:latest 2>&1 || echo "Warning: Failed to push latest tag (non-critical)"
-          
-          echo ""
-          echo "✓ Image push completed: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
+          echo "✓ Successfully pushed: ${REGISTRY}/${IMAGE_NAME}:${SHA}"
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_STEP_LOG_MAX_SIZE: 50000000
@@ -343,7 +132,6 @@ jobs:
       - name: Set image tag
         id: image
         run: |
-          # Use REGISTRY_HOST (without http://) for image tag
           IMAGE_TAG="${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
           echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
           echo "Built and pushed: $IMAGE_TAG"
@@ -361,8 +149,6 @@ jobs:
       - name: Configure kubectl
         id: kubeconfig
         run: |
-          # For k3s self-hosted runner, kubeconfig is typically at /etc/rancher/k3s/k3s.yaml
-          # If KUBECONFIG secret is provided, use it; otherwise use k3s default location
           KUBECONFIG_PATH=""
           if [ -n "${{ secrets.KUBECONFIG }}" ]; then
             mkdir -p ~/.kube
@@ -373,11 +159,10 @@ jobs:
             mkdir -p ~/.kube
             cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
             chmod 600 ~/.kube/config
-            # Update server URL to use localhost for self-hosted runner
             sed -i 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || sed -i '' 's/127.0.0.1/localhost/g' ~/.kube/config 2>/dev/null || true
             KUBECONFIG_PATH=~/.kube/config
           else
-            echo "Error: No kubeconfig found. Please set KUBECONFIG secret or ensure k3s.yaml exists at /etc/rancher/k3s/k3s.yaml"
+            echo "Error: No kubeconfig found"
             exit 1
           fi
           echo "kubeconfig_path=$KUBECONFIG_PATH" >> $GITHUB_OUTPUT
@@ -390,7 +175,6 @@ jobs:
       - name: Create Terraform variables file
         working-directory: ./infra
         run: |
-          # Use empty map if secret_data is not provided
           SECRET_DATA="${{ secrets.TF_VAR_secret_data }}"
           if [ -z "$SECRET_DATA" ]; then
             SECRET_DATA="{}"
@@ -432,4 +216,3 @@ jobs:
           echo "- Deployment: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
           echo "- Service: \`${{ secrets.TF_VAR_project_name }}-web\`" >> $GITHUB_STEP_SUMMARY
           echo "- Ingress: \`${{ secrets.TF_VAR_project_name }}\`" >> $GITHUB_STEP_SUMMARY
-

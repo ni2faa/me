@@ -1,0 +1,66 @@
+# Local k3s Configuration
+# Copy this file to terraform.tfvars and fill in your actual values
+# This file is gitignored - your secrets stay local
+#
+# Registry Configuration:
+# - CI/CD uses host IP to access registry (e.g., 192.168.1.100:5000)
+# - Local deployments should use the same host IP format for consistency
+# - The registry is accessed via HTTP (configured as insecure-registry in Docker)
+# - Update this IP to match REGISTRY_HOST_IP in .github/workflows/deploy.yml
+# REGISTRY_HOST_IP = "192.168.1.100"  # Your registry host IP
+# REGISTRY_PORT = 5000                 # Registry port (default: 5000)
+
+# Kubernetes Configuration
+# For k3s, typically use the default location
+kubeconfig_path = "/etc/rancher/k3s/k3s.yaml"
+# Or if you have it elsewhere:
+# kubeconfig_path = "~/.kube/config"
+
+# Project Configuration
+project_name = "ni2faa-profile"
+namespace    = "ni2faa-profile"
+
+# Domain Configuration
+# Your actual domain for the ingress
+domain    = "your-actual-domain.com"
+base_path = "/"
+
+# Container Image
+# 
+# For CI/CD deployments:
+# - GitHub Actions builds and pushes to local registry at {REGISTRY_HOST_IP}:5000
+# - Image format: {REGISTRY_HOST_IP}:5000/{IMAGE_NAME}:{COMMIT_SHA}
+# - Example: "192.168.1.100:5000/ni2faa/me:abc123def456"
+#
+# For local testing:
+# - Use the image from your local registry (same format as CI/CD)
+# - Format: "{REGISTRY_HOST_IP}:{REGISTRY_PORT}/{IMAGE_NAME}:{TAG}"
+# - Or use GitHub Container Registry: "ghcr.io/ni2faa/me:latest"
+# - Or use a local build: "localhost:5000/ni2faa/me:latest"
+#
+# Note: Use the same REGISTRY_HOST_IP as defined above
+# (should match REGISTRY_HOST_IP in .github/workflows/deploy.yml)
+image = "192.168.1.100:5000/ni2faa/me:latest"
+
+# Replica Configuration
+# Number of pod replicas for high availability
+replicas_web = 2
+
+# Resource Limits and Requests
+# Adjust based on your Next.js application's needs
+resources_web = {
+  limits_cpu    = "1000m"
+  limits_memory = "1Gi"
+  requests_cpu    = "200m"
+  requests_memory = "256Mi"
+}
+
+# Secrets
+# Only add if your application needs environment variables
+# Leave as empty map {} if no secrets needed
+secret_data = {
+  # Example (base64 encoded):
+  # DATABASE_URL = base64encode("postgresql://user:pass@host:5432/db")
+  # API_KEY      = base64encode("your-api-key")
+}
+
