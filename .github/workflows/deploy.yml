@@ -19,6 +19,8 @@ env:
   REGISTRY_URL: http://${REGISTRY_HOST_IP}:${REGISTRY_PORT}
   REGISTRY_HOST: ${REGISTRY_HOST_IP}:${REGISTRY_PORT}
   IMAGE_NAME: ${{ github.repository }}
+  REGISTRY_USERNAME: ${{ secrets.REGISTRY_USERNAME || 'admin' }}
+  REGISTRY_PASSWORD: ${{ secrets.REGISTRY_PASSWORD || 'admin' }}
 jobs:
   build-and-push:
     runs-on: self-hosted
@@ -33,8 +35,8 @@ jobs:
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY_URL }}
-          username: ${{ secrets.REGISTRY_USERNAME || 'admin' }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
+          username: ${{ env.REGISTRY_USERNAME || 'admin' }}
+          password: ${{ env.REGISTRY_PASSWORD }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
