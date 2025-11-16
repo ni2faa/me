@@ -413,11 +413,49 @@ jobs:
         working-directory: ./infra
         run: |
           echo "=== Preparing Infrastructure Configuration ==="
+          
+          # Validate required secrets
+          if [ -z "${{ secrets.TF_VAR_project_name }}" ]; then
+            echo "✗ Error: TF_VAR_project_name secret is required"
+            exit 1
+          fi
+          if [ -z "${{ secrets.TF_VAR_namespace }}" ]; then
+            echo "✗ Error: TF_VAR_namespace secret is required"
+            exit 1
+          fi
+          if [ -z "${{ secrets.TF_VAR_domain }}" ]; then
+            echo "✗ Error: TF_VAR_domain secret is required"
+            exit 1
+          fi
+          if [ -z "${{ secrets.TF_VAR_base_path }}" ]; then
+            echo "✗ Error: TF_VAR_base_path secret is required"
+            exit 1
+          fi
+          
+          # Set defaults for optional values
+          REPLICAS_WEB="${{ secrets.TF_VAR_replicas_web }}"
+          if [ -z "$REPLICAS_WEB" ]; then
+            REPLICAS_WEB="1"
+            echo "⚠ Warning: TF_VAR_replicas_web not set, using default: 1"
+          fi
+          
+          RESOURCES_WEB="${{ secrets.TF_VAR_resources_web }}"
+          if [ -z "$RESOURCES_WEB" ]; then
+            RESOURCES_WEB='{
+            limits_cpu    = "1000m"
+            limits_memory = "1Gi"
+            requests_cpu    = "200m"
+            requests_memory = "256Mi"
+          }'
+            echo "⚠ Warning: TF_VAR_resources_web not set, using defaults"
+          fi
+          
           SECRET_DATA="${{ secrets.TF_VAR_secret_data }}"
           if [ -z "$SECRET_DATA" ]; then
             SECRET_DATA="{}"
           fi
           
+          # Create terraform.tfvars file
           cat > terraform.tfvars <<EOF
           kubeconfig_path = "${{ steps.kubeconfig.outputs.kubeconfig_path }}"
           project_name = "${{ secrets.TF_VAR_project_name }}"
@@ -425,18 +463,48 @@ jobs:
           domain = "${{ secrets.TF_VAR_domain }}"
           base_path = "${{ secrets.TF_VAR_base_path }}"
           image = "${{ steps.image.outputs.image_tag }}"
-          replicas_web = ${{ secrets.TF_VAR_replicas_web }}
-          resources_web = ${{ secrets.TF_VAR_resources_web }}
-          secret_data = $SECRET_DATA
+          replicas_web = ${REPLICAS_WEB}
+          resources_web = ${RESOURCES_WEB}
+          secret_data = ${SECRET_DATA}
           EOF
           
+          echo ""
           echo "✓ Terraform variables file created"
-          echo "Configuration summary:"
-          echo "  - Project: ${{ secrets.TF_VAR_project_name }}"
-          echo "  - Namespace: ${{ secrets.TF_VAR_namespace }}"
-          echo "  - Domain: ${{ secrets.TF_VAR_domain }}"
-          echo "  - Image: ${{ steps.image.outputs.image_tag }}"
-          echo "  - Replicas: ${{ secrets.TF_VAR_replicas_web }}"
+          echo ""
+          echo "=== Configuration Summary ==="
+          echo "  Project: ${{ secrets.TF_VAR_project_name }}"
+          echo "  Namespace: ${{ secrets.TF_VAR_namespace }}"
+          echo "  Domain: ${{ secrets.TF_VAR_domain }}"
+          echo "  Base Path: ${{ secrets.TF_VAR_base_path }}"
+          echo "  Image: ${{ steps.image.outputs.image_tag }}"
+          echo "  Replicas: ${REPLICAS_WEB}"
+          echo "  Resources: ${RESOURCES_WEB}"
+          echo ""
+          echo "=== Generated terraform.tfvars ==="
+          cat terraform.tfvars
+          echo ""
+
+      - name: Validate Terraform Variables File
+        working-directory: ./infra
+        run: |
+          echo "=== Validating terraform.tfvars Syntax ==="
+          if [ ! -f terraform.tfvars ]; then
+            echo "✗ Error: terraform.tfvars file not found"
+            exit 1
+          fi
+          
+          # Check for empty values that would cause syntax errors
+          if grep -q "replicas_web = $" terraform.tfvars || grep -q "replicas_web =[[:space:]]*$" terraform.tfvars; then
+            echo "✗ Error: replicas_web has no value"
+            exit 1
+          fi
+          
+          if grep -q "resources_web = $" terraform.tfvars || grep -q "resources_web =[[:space:]]*$" terraform.tfvars; then
+            echo "✗ Error: resources_web has no value"
+            exit 1
+          fi
+          
+          echo "✓ terraform.tfvars syntax validation passed"
 
       - name: Initialize Terraform
         working-directory: ./infra
