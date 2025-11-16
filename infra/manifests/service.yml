@@ -9,6 +9,6 @@ spec:
   ports:
     - name: http
       port: 80            # service port
-      targetPort: 8080    # containerPort in your pod
+      targetPort: 3000    # containerPort in your pod
       protocol: TCP
   type: ClusterIP
