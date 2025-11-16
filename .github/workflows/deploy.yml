@@ -470,38 +470,27 @@ jobs:
             SECRET_DATA="{}"
           fi
           
-          # Create terraform.tfvars file with FIXED VALUES
-          cat > terraform.tfvars <<'TFVARS_EOF'
-kubeconfig_path = "PLACEHOLDER_KUBECONFIG"
-project_name = "PLACEHOLDER_PROJECT_NAME"
-namespace = "PLACEHOLDER_NAMESPACE"
-domain = "PLACEHOLDER_DOMAIN"
-base_path = "PLACEHOLDER_BASE_PATH"
-image = "PLACEHOLDER_IMAGE"
-replicas_web = PLACEHOLDER_REPLICAS_WEB
-resources_web = {
-  limits_cpu    = "1000m"
-  limits_memory = "1Gi"
-  requests_cpu    = "200m"
-  requests_memory = "256Mi"
-}
-secret_data = PLACEHOLDER_SECRET_DATA
-TFVARS_EOF
-          
-          # Replace placeholders with actual values
-          sed -i "s|PLACEHOLDER_KUBECONFIG|${{ steps.kubeconfig.outputs.kubeconfig_path }}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_PROJECT_NAME|${PROJECT_NAME}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_NAMESPACE|${NAMESPACE}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_DOMAIN|${DOMAIN}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_BASE_PATH|${BASE_PATH}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_IMAGE|${{ steps.image.outputs.image_tag }}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_REPLICAS_WEB|${REPLICAS_WEB}|g" terraform.tfvars
-          sed -i "s|PLACEHOLDER_SECRET_DATA|${SECRET_DATA}|g" terraform.tfvars
+          # Create terraform.tfvars file - NO HEREDOCS, pure echo
+          echo 'kubeconfig_path = "'"${{ steps.kubeconfig.outputs.kubeconfig_path }}"'"' > terraform.tfvars
+          echo 'project_name = "'"${PROJECT_NAME}"'"' >> terraform.tfvars
+          echo 'namespace = "'"${NAMESPACE}"'"' >> terraform.tfvars
+          echo 'domain = "'"${DOMAIN}"'"' >> terraform.tfvars
+          echo 'base_path = "'"${BASE_PATH}"'"' >> terraform.tfvars
+          echo 'image = "'"${{ steps.image.outputs.image_tag }}"'"' >> terraform.tfvars
+          echo 'replicas_web = '"${REPLICAS_WEB}" >> terraform.tfvars
+          echo 'resources_web = {' >> terraform.tfvars
+          echo '  limits_cpu    = "1000m"' >> terraform.tfvars
+          echo '  limits_memory = "1Gi"' >> terraform.tfvars
+          echo '  requests_cpu    = "200m"' >> terraform.tfvars
+          echo '  requests_memory = "256Mi"' >> terraform.tfvars
+          echo '}' >> terraform.tfvars
+          echo 'secret_data = '"${SECRET_DATA}" >> terraform.tfvars
           
           # Handle custom resources_web if provided
           if [ -n "$RESOURCES_WEB" ]; then
-            # Replace the default resources_web block with user-provided value
-            sed -i '/resources_web = {/,/^}/c\
+            # Remove default resources_web block and replace
+            sed -i '/resources_web = {/,/^}/d' terraform.tfvars
+            sed -i '/replicas_web/a\
 resources_web = '"${RESOURCES_WEB}" terraform.tfvars
           fi
           
