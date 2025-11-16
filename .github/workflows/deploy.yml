@@ -490,8 +490,7 @@ jobs:
           if [ -n "$RESOURCES_WEB" ]; then
             # Remove default resources_web block and replace
             sed -i '/resources_web = {/,/^}/d' terraform.tfvars
-            sed -i '/replicas_web/a\
-resources_web = '"${RESOURCES_WEB}" terraform.tfvars
+            sed -i "/replicas_web/a resources_web = ${RESOURCES_WEB}" terraform.tfvars
           fi
           
           echo ""
