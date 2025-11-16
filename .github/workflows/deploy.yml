@@ -471,27 +471,27 @@ jobs:
           fi
           
           # Create terraform.tfvars file with proper formatting
-          # Write basic variables first
-          cat > terraform.tfvars <<BASIC_EOF
-kubeconfig_path = "${{ steps.kubeconfig.outputs.kubeconfig_path }}"
-project_name = "${PROJECT_NAME}"
-namespace = "${NAMESPACE}"
-domain = "${DOMAIN}"
-base_path = "${BASE_PATH}"
-image = "${{ steps.image.outputs.image_tag }}"
-replicas_web = ${REPLICAS_WEB}
-BASIC_EOF
+          # Write all variables using echo to avoid YAML heredoc issues
+          {
+            echo "kubeconfig_path = \"${{ steps.kubeconfig.outputs.kubeconfig_path }}\""
+            echo "project_name = \"${PROJECT_NAME}\""
+            echo "namespace = \"${NAMESPACE}\""
+            echo "domain = \"${DOMAIN}\""
+            echo "base_path = \"${BASE_PATH}\""
+            echo "image = \"${{ steps.image.outputs.image_tag }}\""
+            echo "replicas_web = ${REPLICAS_WEB}"
+          } > terraform.tfvars
           
           # Append resources_web with proper multi-line formatting
           if [ -z "$RESOURCES_WEB" ]; then
-            cat >> terraform.tfvars <<RESOURCES_EOF
-resources_web = {
-  limits_cpu    = "1000m"
-  limits_memory = "1Gi"
-  requests_cpu    = "200m"
-  requests_memory = "256Mi"
-}
-RESOURCES_EOF
+            {
+              echo "resources_web = {"
+              echo '  limits_cpu    = "1000m"'
+              echo '  limits_memory = "1Gi"'
+              echo '  requests_cpu    = "200m"'
+              echo '  requests_memory = "256Mi"'
+              echo "}"
+            } >> terraform.tfvars
           else
             # User provided value - write it as-is but ensure it starts on new line
             echo "resources_web = ${RESOURCES_WEB}" >> terraform.tfvars
