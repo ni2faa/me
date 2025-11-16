@@ -46,6 +46,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Setup Node.js for validation
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          check-latest: true
+
+      - name: Pre-build validation
+        run: |
+          echo "Running pre-build validation"
+          node scripts/prebuild-validate.js
+        env:
+          CI: true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
