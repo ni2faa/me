@@ -15,6 +15,6 @@ spec:
     spec:
       containers:
         - name: me
-          image: 192.168.1.48:5000/ni2faa/me:c5298c2
+          image: 192.168.1.48:5000/ni2faa/me:55dbccc
           ports:
             - containerPort: 3000
