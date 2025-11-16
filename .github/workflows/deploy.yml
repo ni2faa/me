@@ -289,8 +289,16 @@ jobs:
         id: image
         run: |
           IMAGE_TAG="${{ env.REGISTRY_HOST }}/${{ env.IMAGE_NAME }}:${{ github.sha }}"
-          echo "image_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "image_tag=$IMAGE_TAG" \u003e\u003e $GITHUB_OUTPUT
           echo "Built and pushed: $IMAGE_TAG"
+
+      - name: Cache Node.js modules
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-node-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-node-
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -315,10 +323,18 @@ jobs:
           KUBECONFIG_PATH=""
           
           # Method 1: Check KUBECONFIG environment variable (already set)
-          if [ -n "$KUBECONFIG" ] && [ -f "$KUBECONFIG" ]; then
-            echo "Found kubeconfig from KUBECONFIG environment variable: $KUBECONFIG"
-            KUBECONFIG_PATH="$KUBECONFIG"
-            echo "✓ Using kubeconfig from KUBECONFIG env var"
+          if [ -n "$KUBECONFIG" ]; then
+            # Check if KUBECONFIG content is base64 encoded
+            if echo "$KUBECONFIG" | base64 --decode \u003e /dev/null 2\u003e\u00261; then
+              echo "KUBECONFIG environment variable appears to be base64 encoded. Decoding..."
+              echo "$KUBECONFIG" | base64 --decode \u003e /tmp/kubeconfig_decoded
+              KUBECONFIG_PATH="/tmp/kubeconfig_decoded"
+              echo "✓ Using decoded kubeconfig from KUBECONFIG env var"
+            elif [ -f "$KUBECONFIG" ]; then
+              echo "Found kubeconfig from KUBECONFIG environment variable: $KUBECONFIG"
+              KUBECONFIG_PATH="$KUBECONFIG"
+              echo "✓ Using kubeconfig from KUBECONFIG env var"
+            fi
           
           # Method 2: Check common k3s locations (runner is in k3s container)
           elif [ -f /etc/rancher/k3s/k3s.yaml ]; then
