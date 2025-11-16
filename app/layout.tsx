@@ -8,6 +8,13 @@ const description = 'Full Stack & Mobile Engineer specializing in Go, Node.js, N
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
+  viewport: {
+    width: 'device-width',
+    initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
+    viewportFit: 'cover',
+  },
   title: {
     default: title,
     template: `%s | ${siteName}`,
