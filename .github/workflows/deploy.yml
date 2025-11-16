@@ -470,32 +470,37 @@ jobs:
             SECRET_DATA="{}"
           fi
           
-          # Create terraform.tfvars file - NO HEREDOCS, pure echo with proper escaping
-          {
-            echo "kubeconfig_path = \"${{ steps.kubeconfig.outputs.kubeconfig_path }}\""
-            echo "project_name = \"${PROJECT_NAME}\""
-            echo "namespace = \"${NAMESPACE}\""
-            echo "domain = \"${DOMAIN}\""
-            echo "base_path = \"${BASE_PATH}\""
-            echo "image = \"${{ steps.image.outputs.image_tag }}\""
-            echo "replicas_web = ${REPLICAS_WEB}"
-            
-            # Write resources_web block
-            if [ -n "$RESOURCES_WEB" ]; then
-              # User provided custom resources_web
-              echo "resources_web = ${RESOURCES_WEB}"
-            else
-              # Use default resources_web
-              echo "resources_web = {"
-              echo "  limits_cpu    = \"1000m\""
-              echo "  limits_memory = \"1Gi\""
-              echo "  requests_cpu    = \"200m\""
-              echo "  requests_memory = \"256Mi\""
-              echo "}"
-            fi
-            
-            echo "secret_data = ${SECRET_DATA}"
-          } > terraform.tfvars
+          # Create terraform.tfvars file - Write line by line to ensure proper formatting
+          echo "kubeconfig_path = \"${{ steps.kubeconfig.outputs.kubeconfig_path }}\"" > terraform.tfvars
+          echo "project_name = \"${PROJECT_NAME}\"" >> terraform.tfvars
+          echo "namespace = \"${NAMESPACE}\"" >> terraform.tfvars
+          echo "domain = \"${DOMAIN}\"" >> terraform.tfvars
+          echo "base_path = \"${BASE_PATH}\"" >> terraform.tfvars
+          echo "image = \"${{ steps.image.outputs.image_tag }}\"" >> terraform.tfvars
+          echo "replicas_web = ${REPLICAS_WEB}" >> terraform.tfvars
+          
+          # Write resources_web block - ALWAYS use default format
+          echo "resources_web = {" >> terraform.tfvars
+          echo "  limits_cpu    = \"1000m\"" >> terraform.tfvars
+          echo "  limits_memory = \"1Gi\"" >> terraform.tfvars
+          echo "  requests_cpu    = \"200m\"" >> terraform.tfvars
+          echo "  requests_memory = \"256Mi\"" >> terraform.tfvars
+          echo "}" >> terraform.tfvars
+          
+          echo "secret_data = ${SECRET_DATA}" >> terraform.tfvars
+          
+          # Verify file was created correctly
+          echo ""
+          echo "=== Generated terraform.tfvars content ==="
+          cat terraform.tfvars
+          echo ""
+          echo "=== Verifying HCL syntax ==="
+          if grep -q "resources_web = {" terraform.tfvars && grep -q "^}" terraform.tfvars; then
+            echo "✓ resources_web block format verified"
+          else
+            echo "✗ ERROR: resources_web block format incorrect!"
+            exit 1
+          fi
           
           echo ""
           echo "✓ Terraform variables file created"
