@@ -24,10 +24,10 @@
 .diagramContainer {
   position: relative;
   width: 100%;
-  min-height: 1000px;
+  min-height: 1600px;
   background: rgba(var(--bg), 0.5);
   border-radius: var(--radius);
-  padding: 80px 100px;
+  padding: 140px 180px;
   backdrop-filter: blur(10px);
   border: 1px solid rgba(var(--muted), 0.2);
   box-shadow: var(--shadow);
@@ -139,31 +139,37 @@
   width: 100%;
 }
 
-/* Specific Node Positions */
-.nodeServer {
-  top: 8%;
-  left: 5%;
-}
-
-.nodeDomain {
-  top: 8%;
-  right: 5%;
-}
-
-.nodeSsl {
-  top: 30%;
+/* Specific Node Positions - Clear vertical flow with maximum spacing */
+.nodeWebsite {
+  top: 2%;
   left: 50%;
   transform: translateX(-50%);
 }
 
+.nodeServer {
+  top: 22%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nodeDomain {
+  top: 32%;
+  left: 3%;
+}
+
+.nodeSsl {
+  top: 32%;
+  right: 3%;
+}
+
 .nodeK8s {
-  bottom: 30%;
-  left: 5%;
+  top: 53%;
+  left: 3%;
 }
 
 .nodeCicd {
-  bottom: 30%;
-  right: 5%;
+  top: 53%;
+  right: 3%;
 }
 
 .nodeDeploy {
@@ -272,6 +278,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -285,18 +292,23 @@
 .node:nth-child(1) {
   animation-delay: 0.1s;
 }
+
 .node:nth-child(2) {
   animation-delay: 0.2s;
 }
+
 .node:nth-child(3) {
   animation-delay: 0.3s;
 }
+
 .node:nth-child(4) {
   animation-delay: 0.4s;
 }
+
 .node:nth-child(5) {
   animation-delay: 0.5s;
 }
+
 .node:nth-child(6) {
   animation-delay: 0.6s;
 }
@@ -336,6 +348,31 @@
     left: 20px;
     max-width: calc(100% - 40px);
   }
+  .nodeWebsite{
+    top:0%;
+  }
+
+  .nodeServer {
+    top: 30%;
+  }
+  .nodeK8s{
+    top: 60%;
+  }
+  .nodeCicd{
+    top: 60%;
+  }
+  .nodeDeploy{
+    bottom: 2%;
+  }
+  .nodeWebsite{
+    top: 5%;
+  }
+  .nodeDomain{
+    top: 30%;
+  }
+  .nodeSsl{
+    top: 30%;
+  }
 }
 
 @media (max-width: 768px) {
@@ -356,12 +393,14 @@
   }
 
   .diagramContainer {
-    padding: 20px 15px;
-    min-height: 600px;
+    padding: 50px 30px;
+    min-height: 960px;
     transform: scale(0.6);
     transform-origin: top center;
-    width: 166.67%; /* Compensate for scale to maintain layout */
-    margin-left: -33.33%; /* Center the scaled content */
+    width: 166.67%;
+    /* Compensate for scale to maintain layout */
+    margin-left: -33.33%;
+    /* Center the scaled content */
   }
 
   .node {
@@ -395,31 +434,37 @@
   }
 
   /* Keep same relative positions but scaled */
-  .nodeServer {
-    top: 8%;
-    left: 5%;
-  }
-
-  .nodeDomain {
-    top: 8%;
-    right: 5%;
-  }
-
-  .nodeSsl {
-    top: 30%;
+  .nodeWebsite {
+    top: 2%;
     left: 50%;
     transform: translateX(-50%) scale(1);
   }
 
+  .nodeServer {
+    top: 23%;
+    left: 50%;
+    transform: translateX(-50%) scale(1);
+  }
+
+  .nodeDomain {
+    top: 34%;
+    left: 8%;
+  }
+
+  .nodeSsl {
+    top: 34%;
+    right: 8%;
+  }
+
   .nodeK8s {
-    bottom: 30%;
-    left: 5%;
+    top: 56%;
+    left: 8%;
     transform: scale(1);
   }
 
   .nodeCicd {
-    bottom: 30%;
-    right: 5%;
+    top: 56%;
+    right: 8%;
     transform: scale(1);
   }
 
@@ -455,4 +500,3 @@
     font-size: 12px;
   }
 }
-
