@@ -1,0 +1,20 @@
+/**
+ * Component Styles
+ *
+ * Main entry point that imports all component CSS modules
+ * Organized by component type following Context7 best practices
+ * Component-specific styles are co-located with their components
+ */
+
+/* Generic/Shared Components */
+@import './components/cards.css';
+@import './components/buttons.css';
+@import './components/forms.css';
+@import './components/tags.css';
+@import './components/animations.css';
+
+/* Component-Specific Styles (co-located with components) */
+@import '../../components/intro/intro.css';
+@import '../../components/timeline/timeline.css';
+@import '../../components/skills/skills.css';
+@import '../../components/skills/carousel.css';

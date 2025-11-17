@@ -8,6 +8,7 @@ interface SkillCardProps {
   iconUrl: string
   iconAlt: string
   className?: string
+  description: string
 }
 
 /**
@@ -17,7 +18,7 @@ function isValidUrl(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://')
 }
 
-export function SkillCard({ name, iconUrl, iconAlt, className = '' }: SkillCardProps) {
+export function SkillCard({ name, iconUrl, iconAlt, className = '', description }: SkillCardProps) {
   const isImageUrl = isValidUrl(iconUrl)
 
   return (
@@ -30,6 +31,7 @@ export function SkillCard({ name, iconUrl, iconAlt, className = '' }: SkillCardP
         )}
       </div>
       <div className="label">{name}</div>
+      <div className="description">{description}</div>
     </div>
   )
 }

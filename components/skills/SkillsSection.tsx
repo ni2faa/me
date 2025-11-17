@@ -1,4 +1,4 @@
-import { SkillCard } from './SkillCard'
+import { SkillsCarousel } from './SkillsCarousel'
 import { SkillsDataService } from '@/data/skillsData'
 
 /**
@@ -14,20 +14,11 @@ export function SkillsSection() {
     <section className="container section" id="skills">
       <h2>Skills</h2>
       {skillCategories.map((category, categoryIndex) => (
-        <div key={categoryIndex} className="skills-block">
-          <h3 className="skills-heading">{category.heading}</h3>
-          <div className="skills-grid">
-            {category.skills.map((skill, skillIndex) => (
-              <SkillCard
-                key={skillIndex}
-                name={skill.name}
-                iconUrl={skill.iconUrl}
-                iconAlt={skill.iconAlt}
-                className={skill.className}
-              />
-            ))}
-          </div>
-        </div>
+        <SkillsCarousel
+          key={categoryIndex}
+          skills={category.skills}
+          categoryHeading={category.heading}
+        />
       ))}
     </section>
   )

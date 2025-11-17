@@ -1,0 +1,44 @@
+/**
+ * Form Components
+ *
+ * Styles for form elements including inputs, labels, and form layouts
+ */
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+}
+
+input,
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 40%, transparent);
+  border-radius: 10px;
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+}
+
+label {
+  font-weight: 600;
+  margin-bottom: 6px;
+  display: block;
+}
+
+.notice {
+  margin-top: 8px;
+  font-size: .9rem;
+  color: rgb(var(--muted));
+}
+
+.palette-switch {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+[data-action="toggle-theme"] {
+  display: none !important;
+}
+

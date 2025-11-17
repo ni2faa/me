@@ -1,0 +1,76 @@
+/**
+ * Intro Component Styles
+ *
+ * Styles specific to the intro section component
+ */
+
+.intro-card {
+  border-radius: 28px;
+  padding: 26px 24px 24px;
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in oklab, rgb(var(--primary)) 28%, transparent) 0, transparent 55%),
+    radial-gradient(circle at 84% 90%, color-mix(in oklab, rgb(var(--accent)) 18%, transparent) 0, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, rgb(var(--bg)) 96%, transparent), color-mix(in oklab, rgb(var(--bg)) 88%, transparent));
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 65%, transparent);
+  box-shadow:
+    0 24px 60px color-mix(in oklab, rgb(var(--bg)) 90%, transparent),
+    0 0 0 1px color-mix(in oklab, rgb(var(--bg)) 92%, transparent) inset;
+  backdrop-filter: blur(26px) saturate(1.5);
+  color: rgb(var(--fg));
+}
+
+.intro-main {
+  max-width: 640px;
+}
+
+.intro-eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  font-size: 0.72rem;
+  color: rgb(var(--muted));
+  margin: 0 0 8px;
+}
+
+.intro-title {
+  font-size: clamp(1.65rem, 2.4vw, 2.2rem);
+  letter-spacing: 0.04em;
+  margin: 0 0 10px;
+}
+
+.intro-body {
+  margin: 0 0 16px;
+  font-size: 0.92rem;
+  color: rgb(203, 213, 225);
+}
+
+.intro-contact {
+  margin-top: 4px;
+}
+
+.intro-pill {
+  color: rgb(var(--fg));
+  border-radius: 999px;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0px 15px 0px 0px;
+  font-size: .82rem;
+  text-decoration: none;
+  display: inline-flex;
+}
+
+.intro-pill:hover {
+  border-color: color-mix(in oklab, rgb(var(--primary)) 100%, transparent);
+}
+
+.pill-label {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.7rem;
+  color: rgb(var(--fg));
+}
+
+.pill-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
