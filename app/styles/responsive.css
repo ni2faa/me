@@ -160,6 +160,8 @@
   .header-inner.container {
     padding-left: var(--space-2);
     padding-right: var(--space-3);
+    padding-top: 12px !important;
+
   }
 
   .brand {
