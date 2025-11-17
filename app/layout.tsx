@@ -113,10 +113,8 @@ export default function RootLayout({
               email: 'ni2faa@gmail.com',
               url: siteUrl,
               sameAs: [
-                // Add your social media profiles here
-                // 'https://github.com/ni2faa',
-                // 'https://linkedin.com/in/wongsakorn',
-                // 'https://twitter.com/ni2faa',
+                'https://github.com/ni2faa',
+                'https://www.linkedin.com/in/wongsakorn-rodngampring-1796a8152',
               ],
               knowsAbout: [
                 'Golang',

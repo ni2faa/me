@@ -2,6 +2,8 @@
  * IntroSection - Single Responsibility: Renders the introduction section
  * Server Component - No interactivity needed
  */
+import { SocialLinks } from './SocialLinks'
+
 export function IntroSection() {
   return (
     <section className="section section-intro" id="about">
@@ -14,10 +16,8 @@ export function IntroSection() {
             with a strong focus on Go, Node.js, Next.js, and Flutter running on AWS.
           </p>
           <div className="intro-contact">
-            <a className="intro-pill" href="mailto:ni2faa@gmail.com">
-              <span className="pill-label">Contact me</span>
-              <span className="pill-value">ni2faa@gmail.com</span>
-            </a>
+            <p className="intro-eyebrow">Contact</p> 
+            <SocialLinks />
           </div>
         </div>
       </div>
