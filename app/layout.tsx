@@ -53,12 +53,21 @@ export const metadata: Metadata = {
     title,
     description,
     emails: ['ni2faa@gmail.com'],
+    images: [
+      {
+        url: '/images/1517007359825.jpeg',
+        width: 1200,
+        height: 1200,
+        alt: 'Wongsakorn Rodngampring - Full Stack & Mobile Engineer',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title,
     description,
     creator: '@ni2faa',
+    images: ['/images/1517007359825.jpeg'],
   },
   robots: {
     index: true,
@@ -112,6 +121,7 @@ export default function RootLayout({
               description: description,
               email: 'ni2faa@gmail.com',
               url: siteUrl,
+              image: `${siteUrl}/images/1517007359825.jpeg`,
               sameAs: [
                 'https://github.com/ni2faa',
                 'https://www.linkedin.com/in/wongsakorn-rodngampring-1796a8152',
