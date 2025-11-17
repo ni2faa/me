@@ -1,0 +1,187 @@
+/**
+ * Timeline Component Styles
+ *
+ * Styles for timeline and career timeline components
+ */
+
+.timeline {
+  position: relative;
+  padding-left: 28px;
+}
+
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background-color: color-mix(in oklab, rgb(var(--muted)) 40%, transparent);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: var(--space-6);
+}
+
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -2px;
+  top: 4px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: rgb(var(--primary));
+}
+
+.altline {
+  position: relative;
+  margin: 0 auto;
+  padding: 36px 0;
+}
+
+.altline::before {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 50%;
+  width: 2px;
+  transform: translateX(-50%);
+  background:
+    linear-gradient(to bottom,
+      color-mix(in oklab, rgb(var(--muted)) 0%, transparent) 0%,
+      color-mix(in oklab, rgb(var(--primary)) 70%, transparent) 22%,
+      color-mix(in oklab, rgb(var(--accent)) 85%, transparent) 55%,
+      color-mix(in oklab, rgb(var(--primary)) 70%, transparent) 82%,
+      color-mix(in oklab, rgb(var(--muted)) 0%, transparent) 100%);
+  filter: drop-shadow(0 0 12px color-mix(in oklab, rgb(var(--primary)) 90%, transparent));
+}
+
+.alt-item {
+  position: relative;
+  width: min(480px, calc(50% - 32px));
+  margin-bottom: 28px;
+  padding: 18px 18px 16px;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in oklab, rgb(var(--primary)) 20%, transparent) 0, transparent 55%),
+    linear-gradient(135deg, color-mix(in oklab, rgb(var(--bg)) 94%, transparent), color-mix(in oklab, rgb(var(--bg)) 80%, transparent));
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 50%, transparent);
+  box-shadow:
+    0 18px 45px color-mix(in oklab, rgb(var(--bg)) 85%, transparent),
+    0 0 0 1px color-mix(in oklab, rgb(var(--bg)) 85%, transparent) inset;
+  backdrop-filter: blur(22px) saturate(1.5);
+  color: rgb(var(--fg));
+  overflow: hidden;
+  transform-origin: center;
+  transition:
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 260ms ease,
+    border-color 260ms ease,
+    background 260ms ease;
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) scale(.98);
+}
+
+.alt-item:nth-child(odd) {
+  margin-left: auto;
+}
+
+.alt-item:nth-child(odd)::before {
+  right: -8px;
+}
+
+.alt-item:nth-child(even) {
+  margin-right: auto;
+}
+
+.alt-item:nth-child(even)::before {
+  left: -8px;
+}
+
+.alt-item.visible {
+  opacity: 1;
+  transform: translate3d(0, var(--ty, 0), 0) scale(var(--s, 1));
+  transition: transform 600ms cubic-bezier(.22, 1, .36, 1), opacity 500ms ease-out;
+}
+
+.alt-item:hover,
+.alt-item:focus-within {
+  transform: translateY(-4px) scale(1.01);
+  border-color: color-mix(in oklab, rgb(var(--primary)) 85%, transparent);
+  box-shadow:
+    0 28px 60px color-mix(in oklab, rgb(var(--bg)) 90%, transparent),
+    0 0 45px color-mix(in oklab, rgb(var(--primary)) 80%, transparent);
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in oklab, rgb(var(--primary)) 32%, transparent) 0, transparent 60%),
+    linear-gradient(135deg, color-mix(in oklab, rgb(var(--bg)) 98%, transparent), color-mix(in oklab, rgb(var(--bg)) 90%, transparent));
+}
+
+.alt-item h3 {
+  font-size: 1rem;
+  margin: 0 0 4px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgb(var(--fg));
+}
+
+.alt-item p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgb(var(--muted));
+}
+
+.toggle {
+  margin-top: 10px;
+  font-size: 0.8rem;
+  border-radius: 999px;
+  padding-inline: 12px;
+  padding-block: 6px;
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 55%, transparent);
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in oklab, rgb(var(--primary)) 22%, transparent) 0, transparent 55%),
+    color-mix(in oklab, rgb(var(--bg)) 85%, transparent);
+  color: rgb(var(--fg));
+}
+
+.toggle:hover {
+  border-color: color-mix(in oklab, rgb(var(--primary)) 90%, transparent);
+  background:
+    radial-gradient(circle at 16% 10%, color-mix(in oklab, rgb(var(--primary)) 32%, transparent) 0, transparent 60%),
+    color-mix(in oklab, rgb(var(--bg)) 96%, transparent);
+}
+
+.details {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.4);
+  color: rgb(var(--muted));
+  max-height: 0;
+  overflow: hidden;
+  opacity: .0;
+  transform: translateY(8px);
+  transition: max-height 420ms ease, opacity 280ms ease, transform 280ms ease;
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 320px;
+}
+
+.details.open {
+  max-height: 800px;
+  opacity: 1;
+  transform: none;
+}
+
+.details h4 {
+  margin: 12px 0 6px;
+}
+
+.details ul {
+  padding-left: 18px;
+  margin: 0 0 8px;
+}
+
+.tech-tags {
+  margin-top: 8px;
+}
+

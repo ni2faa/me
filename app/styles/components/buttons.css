@@ -1,0 +1,36 @@
+/**
+ * Button Components
+ *
+ * Styles for button components including theme toggle
+ */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in oklab, rgb(var(--primary)) 40%, transparent);
+  background-color: rgb(var(--primary));
+  color: #fff;
+}
+
+.btn.secondary {
+  background-color: rgb(var(--accent));
+  border-color: color-mix(in oklab, rgb(var(--accent)) 50%, transparent);
+}
+
+.btn.pill {
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 30%, transparent);
+}
+
+.theme-toggle {
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 30%, transparent);
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
+  padding: 6px 10px;
+  border-radius: 10px;
+}
+

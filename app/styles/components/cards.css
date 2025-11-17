@@ -1,0 +1,17 @@
+/**
+ * Card Components
+ *
+ * Generic card component styles (shared across components)
+ */
+
+.card {
+  background: color-mix(in oklab, rgb(var(--bg)) 95%, transparent);
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 20%, transparent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.card-inner {
+  padding: var(--space-5);
+}
+

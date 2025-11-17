@@ -1,0 +1,338 @@
+/**
+ * Layout Styles
+ *
+ * Container, grid, and layout-related styles
+ */
+
+/* ==========================================================================
+   Container & Layout
+   ========================================================================== */
+
+.container {
+  max-width: var(--page-max-width);
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 0 20px 0 20px !important;
+  }
+}
+
+@media (max-width: 932) {
+  .container {
+    padding: 0 20px 0 20px !important;
+  }
+}
+
+main.container {
+  padding-top: 64px;
+  padding-bottom: 80px;
+}
+
+.section {
+  content-visibility: visible;
+  contain-intrinsic-size: 600px;
+  padding: var(--space-7) 0;
+  margin-bottom: 56px;
+}
+
+.section>h2 {
+  font-size: clamp(1.25rem, 1.4vw, 1.6rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgb(var(--muted));
+  margin: 0 0 18px;
+}
+
+.section-intro {
+  margin-top: 24px;
+  margin-bottom: 40px;
+}
+
+#skills.section {
+  margin-top: 12px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: 1.2fr .8fr;
+  gap: var(--space-6);
+  padding: var(--space-7) 0;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.footer {
+  padding: var(--space-6) 0;
+  border-top: 1px solid color-mix(in oklab, rgb(var(--muted)) 25%, transparent);
+}
+
+/* ==========================================================================
+   Header & Navigation
+   ========================================================================== */
+
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-top: 0;
+  backdrop-filter: saturate(120%) blur(8px);
+  transition: transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.site-header.is-top {
+  backdrop-filter: none;
+  background-color: transparent;
+  border-bottom: none;
+}
+
+.header-inner {
+  max-width: 100%;
+  padding: 10px 18px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  flex-direction: column;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  transition: background 260ms ease, border-color 260ms ease, box-shadow 260ms ease, backdrop-filter 260ms ease, opacity 260ms ease, transform 280ms cubic-bezier(.22, 1, .36, 1);
+}
+
+.site-header.is-top .header-inner {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.site-header.is-top .nav {
+  justify-content: center;
+}
+
+.site-header.is-top .nav-list {
+  gap: 24px;
+}
+
+.site-header.is-top .lang-toggle {
+  display: none;
+}
+
+.site-header.is-top .nav a {
+  color: rgb(var(--muted));
+  background: transparent;
+}
+
+.site-header.is-top .nav a:hover {
+  color: rgb(var(--fg));
+  background: transparent;
+}
+
+.site-header.scrolling .header-inner {
+  box-shadow: 0 8px 24px color-mix(in oklab, rgb(var(--bg)) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+  transform: translateY(2px);
+  border-radius: 0px 0px 10px 10px;
+}
+
+.site-header.pinned {
+  top: 0;
+  margin-top: 12px;
+}
+
+.site-header.pinned .header-inner {
+  box-shadow: 0 18px 40px color-mix(in oklab, rgb(24 16 12 / 76%) 85%, transparent), 0 0 0 1px color-mix(in oklab, #00000057 90%, transparent) inset;
+  background: none;
+  border-radius: 0 0 10px 10px;
+  border: none;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  font-weight: 700;
+  letter-spacing: .2px;
+  color: rgb(var(--fg));
+}
+
+.brand-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.brand-text {
+  font-size: 1rem;
+  padding-top: 8px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.nav {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav a {
+  padding: 10px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.nav a:hover,
+.nav a:focus-visible {
+  text-underline-offset: 2px;
+  padding: 10px;
+}
+
+.nav-toggle {
+  display: none;
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.hamburger {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 24px;
+  height: 18px;
+  position: relative;
+}
+
+.hamburger span {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background-color: rgb(var(--fg));
+  border-radius: 2px;
+  transition: all 0.3s ease;
+}
+
+.hamburger.open span:nth-child(1) {
+  transform: rotate(45deg) translate(6px, 6px);
+}
+
+.hamburger.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.hamburger.open span:nth-child(3) {
+  transform: rotate(-45deg) translate(6px, -6px);
+}
+
+.nav-list {
+  display: flex;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.lang-toggle {
+  background: transparent;
+  border: 1px solid color-mix(in oklab, rgb(var(--muted)) 30%, transparent);
+  border-radius: 10px;
+  padding: 6px 10px;
+}
+
+.desktop-nav {
+  display: none;
+}
+
+/* Mobile menu overlay */
+.mobile-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgb(var(--bg));
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-20px);
+  transition: opacity 0.3s ease, visibility 0.3s ease, transform 0.3s ease;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.mobile-menu-overlay.open {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.mobile-menu-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid color-mix(in oklab, rgb(var(--muted)) 20%, transparent);
+}
+
+.mobile-menu-close {
+  background: transparent;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  color: rgb(var(--fg));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobile-menu-close svg {
+  width: 24px;
+  height: 24px;
+}
+
+.mobile-menu-overlay .nav-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding: 20px;
+  list-style: none;
+  margin: 0;
+}
+
+.mobile-menu-overlay .nav-list li {
+  width: 100%;
+}
+
+.mobile-menu-overlay .nav-list a {
+  display: block;
+  width: 100%;
+  padding: 16px 0;
+  color: rgb(var(--fg));
+  font-size: 1.1rem;
+  border-bottom: 1px solid color-mix(in oklab, rgb(var(--muted)) 15%, transparent);
+  transition: color 0.2s ease, padding-left 0.2s ease;
+}
+
+.mobile-menu-overlay .nav-list a:hover,
+.mobile-menu-overlay .nav-list a:focus-visible {
+  color: rgb(var(--primary));
+  padding-left: 8px;
+}
+
+.mobile-menu-overlay .nav-list li:last-child a {
+  border-bottom: none;
+}
