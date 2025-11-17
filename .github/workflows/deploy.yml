@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-and-push:
-    if: github.event_name != 'pull_request' || github.event.pull_request.merged == true
+    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main') || github.event_name == 'merge_group'
     runs-on: self-hosted
     environment: production
     steps:
