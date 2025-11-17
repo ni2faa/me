@@ -39,6 +39,11 @@ const nodeInfo: Record<string, NodeInfo> = {
     content:
       'ArgoCD handles GitOps-based continuous deployment, managing application lifecycle automatically. Monitors Git repositories and ensures the cluster state matches the desired configuration.',
   },
+  website: {
+    title: 'Website Container',
+    content:
+      'The Next.js portfolio website running in a containerized environment on Kubernetes. Served with HTTPS through SSL certificates, accessible via the domain name. Automatically updated through CI/CD pipeline.',
+  },
 }
 
 export function InfrastructureDiagram() {
@@ -76,16 +81,20 @@ export function InfrastructureDiagram() {
       k8s: container.querySelector('[data-node="k8s"]') as HTMLElement,
       cicd: container.querySelector('[data-node="cicd"]') as HTMLElement,
       deploy: container.querySelector('[data-node="deploy"]') as HTMLElement,
+      website: container.querySelector('[data-node="website"]') as HTMLElement,
     }
 
-    // Connection paths
+    // Connection paths - Clear flow: Website → Server → Infrastructure → Deploy → Website
     const connections = [
+      { from: 'website', to: 'server' },
+      { from: 'server', to: 'domain' },
       { from: 'server', to: 'ssl' },
-      { from: 'domain', to: 'ssl' },
+      { from: 'domain', to: 'k8s' },
       { from: 'ssl', to: 'k8s' },
-      { from: 'ssl', to: 'cicd' },
+      { from: 'server', to: 'cicd' },
       { from: 'k8s', to: 'deploy' },
       { from: 'cicd', to: 'deploy' },
+      { from: 'deploy', to: 'website' },
     ]
 
     connections.forEach((conn) => {
@@ -247,8 +256,8 @@ export function InfrastructureDiagram() {
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <h1>Infrastructure Architecture Diagram</h1>
-        <p>Interactive visualization of server infrastructure components</p>
+        <h1>Infrastructure Showcase</h1>
+        <p>Interactive visualization of this website&apos;s server infrastructure</p>
       </div>
 
       <div className={styles.diagramContainer} ref={diagramRef} id="diagram">
@@ -339,6 +348,20 @@ export function InfrastructureDiagram() {
               Continuous Deployment
             </div>
             <div className={styles.nodeBadge}>Automated</div>
+          </div>
+        </div>
+
+        {/* Website Container Node */}
+        <div className={`${styles.node} ${styles.nodeWebsite}`} data-node="website" onClick={() => handleNodeClick('website')}>
+          <div className={styles.nodeCard}>
+            <div className={styles.nodeIcon}>⚡</div>
+            <div className={styles.nodeTitle}>Website Container</div>
+            <div className={styles.nodeDescription}>
+              Next.js Portfolio
+              <br />
+              Running on K8s
+            </div>
+            <div className={styles.nodeBadge}>Live</div>
           </div>
         </div>
       </div>
