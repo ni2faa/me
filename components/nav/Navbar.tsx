@@ -1,14 +1,17 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
 import { LocalStorageService } from '@/lib/storage/StorageService'
 import { LanguageService, SupportedLang } from '@/lib/i18n/LanguageService'
 
-type NavKey = 'about' | 'timeline' | 'skills' | 'contact'
+type NavKey = 'about' | 'timeline' | 'skills' | 'showcase' | 'contact'
 
 export function Navbar() {
   const storage = useMemo(() => new LocalStorageService(), [])
   const langService = useMemo(() => new LanguageService(storage), [storage])
+  const pathname = usePathname()
   const [lang, setLang] = useState<SupportedLang>('en')
   const [open, setOpen] = useState(false)
   const [scrollState, setScrollState] = useState<'is-top' | 'scrolling' | 'pinned'>('is-top')
@@ -17,6 +20,19 @@ export function Navbar() {
     const initial = langService.getLang()
     setLang(initial)
   }, [langService])
+
+  useEffect(() => {
+    // Handle hash navigation when coming from other pages
+    if (pathname === '/' && window.location.hash) {
+      const hash = window.location.hash.substring(1)
+      setTimeout(() => {
+        const el = document.getElementById(hash)
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
+      }, 100)
+    }
+  }, [pathname])
 
   useEffect(() => {
     if (open) {
@@ -49,11 +65,16 @@ export function Navbar() {
   }, [])
 
   const labels: Record<SupportedLang, Record<NavKey, string>> = {
-    en: { about: 'About', timeline: 'Timeline', skills: 'Skills', contact: 'Contact' },
-    th: { about: 'เกี่ยวกับ', timeline: 'ไทม์ไลน์', skills: 'ทักษะ', contact: 'ติดต่อ' },
+    en: { about: 'About', timeline: 'Timeline', skills: 'Skills', showcase: 'Showcase', contact: 'Contact' },
+    th: { about: 'เกี่ยวกับ', timeline: 'ไทม์ไลน์', skills: 'ทักษะ', showcase: 'ผลงาน', contact: 'ติดต่อ' },
   }
 
   const onNav = (id: string) => {
+    // If we're on a different page, navigate to home first
+    if (pathname !== '/') {
+      window.location.href = `/#${id}`
+      return
+    }
     const el = document.getElementById(id)
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -83,6 +104,9 @@ export function Navbar() {
             </li>
             <li role="none">
               <a role="menuitem" tabIndex={0} onClick={() => onNav('skills')}>{labels[lang].skills}</a>
+            </li>
+            <li role="none">
+              <Link href="/showcase" role="menuitem" tabIndex={0}>{labels[lang].showcase}</Link>
             </li>
             <li role="none">
               <a role="menuitem" tabIndex={0} href="mailto:ni2faa@gmail.com">{labels[lang].contact}</a>
@@ -134,6 +158,9 @@ export function Navbar() {
           </li>
           <li role="none">
             <a role="menuitem" tabIndex={0} onClick={() => onNav('skills')}>{labels[lang].skills}</a>
+          </li>
+          <li role="none">
+            <Link href="/showcase" role="menuitem" tabIndex={0} onClick={() => setOpen(false)}>{labels[lang].showcase}</Link>
           </li>
           <li role="none">
             <a role="menuitem" tabIndex={0} href="mailto:ni2faa@gmail.com">{labels[lang].contact}</a>
