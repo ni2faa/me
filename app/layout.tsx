@@ -1,4 +1,5 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
+import { AnalyticsScripts } from '@/components/analytics/AnalyticsScripts'
 import './globals.css'
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://ni2faa.github.io/me'
@@ -8,13 +9,6 @@ const description = 'Full Stack & Mobile Engineer specializing in Go, Node.js, N
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
-    viewportFit: 'cover',
-  },
   title: {
     default: title,
     template: `%s | ${siteName}`,
@@ -88,6 +82,14 @@ export const metadata: Metadata = {
   },
 }
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  viewportFit: 'cover',
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -98,6 +100,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
         <link rel="mask-icon" href="/favicon.svg" color="#D27D55" />
+        <AnalyticsScripts />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
