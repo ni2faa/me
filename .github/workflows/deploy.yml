@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/infra
 
 permissions:
   contents: write   
@@ -12,9 +11,9 @@ permissions:
 
 env:
   REGISTRY_PORT: 5000
-  REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}      # e.g. 192.168.1.48
+  REGISTRY_HOST_IP: ${{ secrets.REGISTRY_HOST_IP }}     
   REGISTRY_HOST: ${{ secrets.REGISTRY_HOST_IP }}:5000
-  IMAGE_NAME: ${{ github.repository }}                  # e.g. ni2faa/me
+  IMAGE_NAME: ${{ github.repository }}                  
   DEPLOYMENT_FILE: infra/manifests/deployment.yml
 
 jobs:
