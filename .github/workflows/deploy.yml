@@ -4,14 +4,10 @@ on:
   push:
     branches:
       - main
-  pull_request:
-    types:
-      - closed
-    branches:
-      - main
   merge_group:
     branches:
       - main
+
 
 permissions:
   contents: write   
@@ -26,7 +22,7 @@ env:
 
 jobs:
   build-and-push:
-    if: github.ref == 'refs/heads/main' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main') || github.event_name == 'merge_group'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'merge_group'
     runs-on: self-hosted
     environment: production
     steps:
