@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infrastructure Diagram - Interactive</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+            overflow-x: auto;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+
+        .header h1 {
+            font-size: 42px;
+            background: linear-gradient(135deg, #64ffda 0%, #7c4dff 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            color: #94a3b8;
+        }
+
+        .diagram-container {
+            position: relative;
+            width: 100%;
+            min-height: 1000px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 20px;
+            padding: 80px 100px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 255, 218, 0.2);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        /* SVG Connection Lines */
+        .connections {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .connection-line {
+            stroke: #64ffda;
+            stroke-width: 3;
+            fill: none;
+            stroke-dasharray: 5,5;
+            animation: dash 20s linear infinite;
+            opacity: 0.6;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
+        }
+
+        .connection-line.active {
+            opacity: 1;
+            stroke-width: 4;
+            animation: dash 2s linear infinite;
+        }
+
+        /* Node Styles */
+        .node {
+            position: absolute;
+            z-index: 10;
+            cursor: pointer;
+            transition: z-index 0.3s ease;
+        }
+
+        .node:hover {
+            z-index: 20;
+        }
+
+        .node-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+            border: 2px solid #64ffda;
+            border-radius: 16px;
+            padding: 28px;
+            min-width: 240px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5),
+                        0 0 20px rgba(100, 255, 218, 0.2);
+            backdrop-filter: blur(10px);
+            transition: box-shadow 0.3s ease, border-color 0.3s ease;
+        }
+
+        .node:hover .node-card {
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.6),
+                        0 0 30px rgba(100, 255, 218, 0.4);
+            border-color: #7c4dff;
+        }
+
+        .node-icon {
+            font-size: 48px;
+            text-align: center;
+            margin-bottom: 12px;
+            filter: drop-shadow(0 0 10px rgba(100, 255, 218, 0.5));
+        }
+
+        .node-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #64ffda;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+
+        .node-description {
+            font-size: 13px;
+            color: #cbd5e1;
+            text-align: center;
+            line-height: 1.5;
+            opacity: 0.9;
+        }
+
+        .node-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: rgba(100, 255, 218, 0.2);
+            border: 1px solid #64ffda;
+            border-radius: 12px;
+            font-size: 11px;
+            color: #64ffda;
+            margin-top: 8px;
+            text-align: center;
+            width: 100%;
+        }
+
+        /* Specific Node Positions */
+        .node-server {
+            top: 8%;
+            left: 5%;
+        }
+
+        .node-domain {
+            top: 8%;
+            right: 5%;
+        }
+
+        .node-ssl {
+            top: 30%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .node-k8s {
+            bottom: 30%;
+            left: 5%;
+        }
+
+        .node-cicd {
+            bottom: 30%;
+            right: 5%;
+        }
+
+        .node-deploy {
+            bottom: 8%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        /* Pulse Animation */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+
+        .node.pulse {
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        /* Info Panel */
+        .info-panel {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 2px solid #64ffda;
+            border-radius: 16px;
+            padding: 20px;
+            max-width: 350px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+
+        .info-panel.active {
+            opacity: 1;
+            transform: translateY(0);
+            pointer-events: all;
+        }
+
+        .info-panel h3 {
+            color: #64ffda;
+            margin-bottom: 12px;
+            font-size: 18px;
+        }
+
+        .info-panel p {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .info-panel .close {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            color: #64ffda;
+            font-size: 24px;
+            cursor: pointer;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+
+        .info-panel .close:hover {
+            background: rgba(100, 255, 218, 0.2);
+        }
+
+        /* Legend */
+        .legend {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(100, 255, 218, 0.3);
+            border-radius: 12px;
+            padding: 16px;
+            backdrop-filter: blur(10px);
+            z-index: 50;
+        }
+
+        .legend h4 {
+            color: #64ffda;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+            font-size: 12px;
+            color: #cbd5e1;
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #64ffda;
+            box-shadow: 0 0 8px rgba(100, 255, 218, 0.6);
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .diagram-container {
+                padding: 60px 40px;
+                min-height: 1200px;
+            }
+
+            .node {
+                position: relative;
+                margin: 20px auto;
+                left: auto !important;
+                right: auto !important;
+                top: auto !important;
+                bottom: auto !important;
+                transform: none !important;
+            }
+
+            .connections {
+                display: none;
+            }
+
+            .info-panel {
+                position: relative;
+                bottom: auto;
+                right: auto;
+                margin: 20px auto;
+                max-width: 100%;
+            }
+        }
+
+        /* Loading Animation - Only opacity, no transform to prevent movement */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .node {
+            animation: fadeIn 0.6s ease-out;
+            animation-fill-mode: forwards;
+        }
+
+        .node:nth-child(1) { animation-delay: 0.1s; }
+        .node:nth-child(2) { animation-delay: 0.2s; }
+        .node:nth-child(3) { animation-delay: 0.3s; }
+        .node:nth-child(4) { animation-delay: 0.4s; }
+        .node:nth-child(5) { animation-delay: 0.5s; }
+        .node:nth-child(6) { animation-delay: 0.6s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Infrastructure Architecture Diagram</h1>
+            <p>Interactive visualization of server infrastructure components</p>
+        </div>
+
+        <div class="diagram-container" id="diagram">
+            <!-- Legend -->
+            <div class="legend">
+                <h4>Components</h4>
+                <div class="legend-item">
+                    <div class="legend-dot"></div>
+                    <span>Click nodes for details</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background: #7c4dff;"></div>
+                    <span>Active connection</span>
+                </div>
+            </div>
+
+            <!-- SVG for Connections -->
+            <svg class="connections" id="connections">
+                <!-- Connections will be drawn here -->
+            </svg>
+
+            <!-- Server Hardware Node -->
+            <div class="node node-server" data-info="server">
+                <div class="node-card">
+                    <div class="node-icon">🖥️</div>
+                    <div class="node-title">Server Hardware</div>
+                    <div class="node-description">Raspberry Pi<br>Ubuntu OS</div>
+                    <div class="node-badge">Self-configured</div>
+                </div>
+            </div>
+
+            <!-- Domain & DNS Node -->
+            <div class="node node-domain" data-info="domain">
+                <div class="node-card">
+                    <div class="node-icon">🌐</div>
+                    <div class="node-title">Domain & DNS</div>
+                    <div class="node-description">No-IP Free Domain<br>Auto IP Update</div>
+                    <div class="node-badge">Dynamic DNS</div>
+                </div>
+            </div>
+
+            <!-- SSL Certificate Node -->
+            <div class="node node-ssl" data-info="ssl">
+                <div class="node-card">
+                    <div class="node-icon">🔒</div>
+                    <div class="node-title">SSL Certificate</div>
+                    <div class="node-description">Let's Encrypt<br>Free HTTPS</div>
+                    <div class="node-badge">Auto-renewal</div>
+                </div>
+            </div>
+
+            <!-- Kubernetes Node -->
+            <div class="node node-k8s" data-info="k8s">
+                <div class="node-card">
+                    <div class="node-icon">☸️</div>
+                    <div class="node-title">Kubernetes</div>
+                    <div class="node-description">K3s Distribution<br>Container Platform</div>
+                    <div class="node-badge">Lightweight</div>
+                </div>
+            </div>
+
+            <!-- CI/CD Node -->
+            <div class="node node-cicd" data-info="cicd">
+                <div class="node-card">
+                    <div class="node-icon">⚙️</div>
+                    <div class="node-title">CI/CD Pipeline</div>
+                    <div class="node-description">GitHub Actions<br>Auto Deploy</div>
+                    <div class="node-badge">Trigger: main</div>
+                </div>
+            </div>
+
+            <!-- Deployment Node -->
+            <div class="node node-deploy" data-info="deploy">
+                <div class="node-card">
+                    <div class="node-icon">🚀</div>
+                    <div class="node-title">Deployment</div>
+                    <div class="node-description">ArgoCD GitOps<br>Continuous Deployment</div>
+                    <div class="node-badge">Automated</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Panel -->
+        <div class="info-panel" id="infoPanel">
+            <button class="close" onclick="closeInfoPanel()">×</button>
+            <h3 id="infoTitle"></h3>
+            <p id="infoContent"></p>
+        </div>
+    </div>
+
+    <script>
+        // Node information
+        const nodeInfo = {
+            server: {
+                title: "Server Hardware",
+                content: "Raspberry Pi connected to home internet. Running Ubuntu operating system, self-configured and optimized for the setup. The server provides the foundational infrastructure for hosting containerized applications."
+            },
+            domain: {
+                title: "Domain & DNS",
+                content: "Free domain from No-IP with automatic IP update functionality. Seamlessly updates when home internet IP address changes, ensuring the domain always points to the correct server location."
+            },
+            ssl: {
+                title: "SSL Certificate",
+                content: "Let's Encrypt provides free SSL/TLS certificates, enabling secure HTTPS connections for all services. Certificates are automatically renewed before expiration."
+            },
+            k8s: {
+                title: "Kubernetes",
+                content: "K3s lightweight Kubernetes distribution running on Raspberry Pi, providing container orchestration capabilities. Optimized for edge devices and resource-constrained environments."
+            },
+            cicd: {
+                title: "CI/CD Pipeline",
+                content: "GitHub Actions automatically triggers deployment when code is merged into the main branch. Builds, tests, and prepares applications for deployment."
+            },
+            deploy: {
+                title: "ArgoCD Deployment",
+                content: "ArgoCD handles GitOps-based continuous deployment, managing application lifecycle automatically. Monitors Git repositories and ensures the cluster state matches the desired configuration."
+            }
+        };
+
+        // Draw connection lines
+        function drawConnections() {
+            const svg = document.getElementById('connections');
+            const container = document.getElementById('diagram');
+            const containerRect = container.getBoundingClientRect();
+            
+            // Get node positions
+            const nodes = {
+                server: document.querySelector('.node-server'),
+                domain: document.querySelector('.node-domain'),
+                ssl: document.querySelector('.node-ssl'),
+                k8s: document.querySelector('.node-k8s'),
+                cicd: document.querySelector('.node-cicd'),
+                deploy: document.querySelector('.node-deploy')
+            };
+
+            // Connection paths
+            const connections = [
+                { from: 'server', to: 'ssl' },
+                { from: 'domain', to: 'ssl' },
+                { from: 'ssl', to: 'k8s' },
+                { from: 'ssl', to: 'cicd' },
+                { from: 'k8s', to: 'deploy' },
+                { from: 'cicd', to: 'deploy' }
+            ];
+
+            connections.forEach((conn, index) => {
+                const fromNode = nodes[conn.from];
+                const toNode = nodes[conn.to];
+                
+                if (!fromNode || !toNode) return;
+
+                const fromRect = fromNode.getBoundingClientRect();
+                const toRect = toNode.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+
+                const fromX = fromRect.left + fromRect.width / 2 - containerRect.left;
+                const fromY = fromRect.top + fromRect.height / 2 - containerRect.top;
+                const toX = toRect.left + toRect.width / 2 - containerRect.left;
+                const toY = toRect.top + toRect.height / 2 - containerRect.top;
+
+                // Create curved path
+                const midX = (fromX + toX) / 2;
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                const d = `M ${fromX} ${fromY} Q ${midX} ${fromY} ${midX} ${(fromY + toY) / 2} T ${toX} ${toY}`;
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'connection-line');
+                path.setAttribute('data-from', conn.from);
+                path.setAttribute('data-to', conn.to);
+                svg.appendChild(path);
+            });
+        }
+
+        // Update connections on resize
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                const svg = document.getElementById('connections');
+                svg.innerHTML = '';
+                drawConnections();
+            }, 250);
+        });
+
+        // Node click handler
+        document.querySelectorAll('.node').forEach(node => {
+            node.addEventListener('click', (e) => {
+                const infoType = node.getAttribute('data-info');
+                const info = nodeInfo[infoType];
+                
+                if (info) {
+                    document.getElementById('infoTitle').textContent = info.title;
+                    document.getElementById('infoContent').textContent = info.content;
+                    document.getElementById('infoPanel').classList.add('active');
+                    
+                    // Highlight connection
+                    const svg = document.getElementById('connections');
+                    svg.querySelectorAll('.connection-line').forEach(line => {
+                        if (line.getAttribute('data-from') === infoType || 
+                            line.getAttribute('data-to') === infoType) {
+                            line.classList.add('active');
+                        } else {
+                            line.classList.remove('active');
+                        }
+                    });
+                }
+            });
+
+            // Visual feedback on hover (no movement)
+            node.addEventListener('mouseenter', () => {
+                // Only visual effects, no animations that cause movement
+            });
+
+            node.addEventListener('mouseleave', () => {
+                // Ensure no lingering animations
+                node.classList.remove('pulse');
+            });
+        });
+
+        // Close info panel
+        function closeInfoPanel() {
+            document.getElementById('infoPanel').classList.remove('active');
+            document.querySelectorAll('.connection-line').forEach(line => {
+                line.classList.remove('active');
+            });
+        }
+
+        // Close panel on outside click
+        document.addEventListener('click', (e) => {
+            const panel = document.getElementById('infoPanel');
+            if (panel.classList.contains('active') && 
+                !panel.contains(e.target) && 
+                !e.target.closest('.node')) {
+                closeInfoPanel();
+            }
+        });
+
+        // Initialize connections
+        window.addEventListener('load', () => {
+            setTimeout(drawConnections, 100);
+        });
+
+        // Redraw on page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) {
+                setTimeout(() => {
+                    const svg = document.getElementById('connections');
+                    svg.innerHTML = '';
+                    drawConnections();
+                }, 100);
+            }
+        });
+    </script>
+</body>
+</html>
+

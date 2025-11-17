@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100 Infrastructure Design Prototypes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+            padding: 40px 20px;
+            line-height: 1.6;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 60px;
+            padding: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            color: white;
+        }
+
+        .header h1 {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+
+        .nav-menu {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(26, 31, 58, 0.95);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 1000;
+            max-height: 80vh;
+            overflow-y: auto;
+            width: 250px;
+        }
+
+        .nav-menu h3 {
+            color: #64ffda;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+
+        .nav-link {
+            display: block;
+            color: #cbd5e1;
+            text-decoration: none;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            margin: 2px 0;
+        }
+
+        .nav-link:hover {
+            background: rgba(100, 255, 218, 0.1);
+            color: #64ffda;
+        }
+
+        .prototype-container {
+            max-width: 1200px;
+            margin: 0 auto 80px;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .prototype-title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid;
+            text-align: center;
+        }
+
+        .section-divider {
+            text-align: center;
+            font-size: 32px;
+            font-weight: bold;
+            color: #64ffda;
+            margin: 60px 0 40px;
+            padding: 20px;
+            background: rgba(100, 255, 218, 0.1);
+            border-radius: 10px;
+        }
+
+        /* Common utility classes */
+        .info-item {
+            margin: 15px 0;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .info-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .info-desc {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        /* Design 1: Terminal */
+        .design-1 { background: #1e1e1e; border: 1px solid #3c3c3c; }
+        .design-1 .prototype-title { color: #4ec9b0; border-color: #4ec9b0; }
+        .terminal { background: #0d1117; padding: 20px; border-radius: 8px; font-family: monospace; }
+        .term-line { margin: 8px 0; color: #c9d1d9; }
+        .term-prompt { color: #7c3aed; }
+        .term-cmd { color: #58a6ff; }
+        .term-out { color: #79c0ff; margin-left: 20px; }
+
+        /* Design 2: Network Nodes */
+        .design-2 { background: linear-gradient(135deg, #1a1f3a 0%, #2d1b4e 100%); }
+        .design-2 .prototype-title { color: #a78bfa; border-color: #a78bfa; }
+        .network-flow { display: flex; flex-direction: column; gap: 30px; align-items: center; padding: 30px; }
+        .node { background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 20px 30px; border-radius: 12px; min-width: 300px; text-align: center; }
+        .connector { width: 2px; height: 30px; background: linear-gradient(to bottom, #6366f1, #8b5cf6); margin: 0 auto; }
+
+        /* Design 3: Cards Grid */
+        .design-3 { background: #0f172a; }
+        .design-3 .prototype-title { color: #06b6d4; border-color: #06b6d4; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .card { background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 25px; border-radius: 10px; border-left: 4px solid #06b6d4; }
+        .card:hover { transform: translateY(-5px); transition: 0.3s; }
+
+        /* Design 4: Timeline */
+        .design-4 { background: #0a0a0f; }
+        .design-4 .prototype-title { color: #fbbf24; border-color: #fbbf24; }
+        .timeline { position: relative; padding: 30px 0; }
+        .timeline::before { content: ''; position: absolute; left: 30px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, #fbbf24, #f59e0b); }
+        .timeline-item { position: relative; padding-left: 80px; margin-bottom: 40px; }
+        .timeline-dot { position: absolute; left: 22px; top: 5px; width: 16px; height: 16px; border-radius: 50%; background: #fbbf24; border: 3px solid #0a0a0f; }
+        .timeline-box { background: #1a1a1f; border-left: 3px solid #fbbf24; padding: 20px; border-radius: 8px; }
+
+        /* Design 5: Dashboard */
+        .design-5 { background: #0d1117; border: 1px solid #21262d; }
+        .design-5 .prototype-title { color: #58a6ff; border-color: #58a6ff; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .panel { background: #161b22; border: 1px solid #30363d; padding: 20px; border-radius: 8px; }
+        .panel-header { display: flex; justify-content: space-between; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid #21262d; }
+        .badge { padding: 4px 10px; border-radius: 12px; font-size: 11px; background: rgba(46, 160, 67, 0.15); color: #3fb950; }
+
+        /* Design 6: Neon Glow */
+        .design-6 { background: #0a0a0a; }
+        .design-6 .prototype-title { color: #ff00ff; border-color: #ff00ff; text-shadow: 0 0 20px #ff00ff; }
+        .neon-box { background: #1a1a1a; border: 2px solid #ff00ff; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 0 20px rgba(255, 0, 255, 0.3); }
+
+        /* Design 7: Glass Morphism */
+        .design-7 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .design-7 .prototype-title { color: white; border-color: rgba(255,255,255,0.3); }
+        .glass { background: rgba(255, 255, 255, 0.1); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); padding: 20px; margin: 15px 0; border-radius: 12px; }
+
+        /* Design 8: Minimalist */
+        .design-8 { background: #ffffff; color: #1a1a1a; }
+        .design-8 .prototype-title { color: #000; border-color: #000; }
+        .minimal-box { border: 2px solid #000; padding: 20px; margin: 15px 0; background: transparent; }
+
+        /* Design 9: Cyberpunk */
+        .design-9 { background: #000000; border: 2px solid #00ff00; }
+        .design-9 .prototype-title { color: #00ff00; border-color: #00ff00; font-family: monospace; }
+        .cyber-box { background: #001100; border: 1px solid #00ff00; padding: 15px; margin: 15px 0; font-family: monospace; color: #00ff00; }
+
+        /* Design 10: Gradient Cards */
+        .design-10 { background: #0f0f23; }
+        .design-10 .prototype-title { color: #ff6b6b; border-color: #ff6b6b; }
+        .grad-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 25px; margin: 15px 0; border-radius: 15px; color: white; }
+
+        /* Design 11: Hexagonal */
+        .design-11 { background: #1a1a2e; }
+        .design-11 .prototype-title { color: #e94560; border-color: #e94560; }
+        .hex-container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; }
+        .hex { width: 200px; height: 200px; background: #16213e; clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); display: flex; align-items: center; justify-content: center; flex-direction: column; padding: 20px; border: 2px solid #e94560; }
+
+        /* Design 12: Paper Style */
+        .design-12 { background: #f5f5dc; color: #333; }
+        .design-12 .prototype-title { color: #8b4513; border-color: #8b4513; }
+        .paper { background: #fff; padding: 25px; margin: 15px 0; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); border-left: 4px solid #8b4513; }
+
+        /* Design 13: Dark Blue */
+        .design-13 { background: #0a1929; }
+        .design-13 .prototype-title { color: #4fc3f7; border-color: #4fc3f7; }
+        .blue-box { background: #132f4c; border: 1px solid #4fc3f7; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 14: Purple Dream */
+        .design-14 { background: #2d1b4e; }
+        .design-14 .prototype-title { color: #d946ef; border-color: #d946ef; }
+        .purple-box { background: #3b1f5e; border: 2px solid #d946ef; padding: 20px; margin: 15px 0; border-radius: 12px; }
+
+        /* Design 15: Orange Energy */
+        .design-15 { background: #1a0f00; }
+        .design-15 .prototype-title { color: #ff8c00; border-color: #ff8c00; }
+        .orange-box { background: #2d1a00; border: 2px solid #ff8c00; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 16: Matrix Style */
+        .design-16 { background: #000000; font-family: monospace; }
+        .design-16 .prototype-title { color: #00ff41; border-color: #00ff41; }
+        .matrix-box { background: #001100; border: 1px solid #00ff41; padding: 15px; margin: 15px 0; color: #00ff41; }
+
+        /* Design 17: Soft Pink */
+        .design-17 { background: #2d1a2e; }
+        .design-17 .prototype-title { color: #ff69b4; border-color: #ff69b4; }
+        .pink-box { background: #3d2a3e; border: 2px solid #ff69b4; padding: 20px; margin: 15px 0; border-radius: 10px; }
+
+        /* Design 18: Ocean Blue */
+        .design-18 { background: #001f3f; }
+        .design-18 .prototype-title { color: #00d4ff; border-color: #00d4ff; }
+        .ocean-box { background: #003366; border: 2px solid #00d4ff; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 19: Fire Red */
+        .design-19 { background: #1a0000; }
+        .design-19 .prototype-title { color: #ff3333; border-color: #ff3333; }
+        .fire-box { background: #2d0000; border: 2px solid #ff3333; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 0 15px rgba(255, 51, 51, 0.3); }
+
+        /* Design 20: Gold Luxury */
+        .design-20 { background: #1a1a00; }
+        .design-20 .prototype-title { color: #ffd700; border-color: #ffd700; }
+        .gold-box { background: #2d2d00; border: 2px solid #ffd700; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 21: Teal Modern */
+        .design-21 { background: #0a1a1a; }
+        .design-21 .prototype-title { color: #20b2aa; border-color: #20b2aa; }
+        .teal-box { background: #1a2a2a; border: 2px solid #20b2aa; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 22: Indigo Deep */
+        .design-22 { background: #1a0d33; }
+        .design-22 .prototype-title { color: #6a5acd; border-color: #6a5acd; }
+        .indigo-box { background: #2a1d43; border: 2px solid #6a5acd; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 23: Lime Fresh */
+        .design-23 { background: #1a2a00; }
+        .design-23 .prototype-title { color: #32cd32; border-color: #32cd32; }
+        .lime-box { background: #2a3a00; border: 2px solid #32cd32; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 24: Coral Warm */
+        .design-24 { background: #2a1a1a; }
+        .design-24 .prototype-title { color: #ff7f50; border-color: #ff7f50; }
+        .coral-box { background: #3a2a2a; border: 2px solid #ff7f50; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 25: Violet Soft */
+        .design-25 { background: #2d1a3d; }
+        .design-25 .prototype-title { color: #8a2be2; border-color: #8a2be2; }
+        .violet-box { background: #3d2a4d; border: 2px solid #8a2be2; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 26: Cyan Bright */
+        .design-26 { background: #001a1a; }
+        .design-26 .prototype-title { color: #00ffff; border-color: #00ffff; }
+        .cyan-box { background: #002a2a; border: 2px solid #00ffff; padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 0 20px rgba(0, 255, 255, 0.3); }
+
+        /* Design 27: Maroon Rich */
+        .design-27 { background: #1a0000; }
+        .design-27 .prototype-title { color: #800000; border-color: #800000; }
+        .maroon-box { background: #2a0000; border: 2px solid #800000; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 28: Turquoise Cool */
+        .design-28 { background: #001f1f; }
+        .design-28 .prototype-title { color: #40e0d0; border-color: #40e0d0; }
+        .turquoise-box { background: #002f2f; border: 2px solid #40e0d0; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 29: Salmon Light */
+        .design-29 { background: #2a1a1a; }
+        .design-29 .prototype-title { color: #fa8072; border-color: #fa8072; }
+        .salmon-box { background: #3a2a2a; border: 2px solid #fa8072; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 30: Slate Gray */
+        .design-30 { background: #1a1a1f; }
+        .design-30 .prototype-title { color: #708090; border-color: #708090; }
+        .slate-box { background: #2a2a2f; border: 2px solid #708090; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 31: Brick Pattern */
+        .design-31 { background: #2a1a0a; }
+        .design-31 .prototype-title { color: #cd853f; border-color: #cd853f; }
+        .brick-box { background: #3a2a1a; border: 2px solid #cd853f; padding: 20px; margin: 15px 0; border-radius: 4px; }
+
+        /* Design 32: Emerald Green */
+        .design-32 { background: #001a0a; }
+        .design-32 .prototype-title { color: #50c878; border-color: #50c878; }
+        .emerald-box { background: #002a1a; border: 2px solid #50c878; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 33: Royal Blue */
+        .design-33 { background: #000033; }
+        .design-33 .prototype-title { color: #4169e1; border-color: #4169e1; }
+        .royal-box { background: #000066; border: 2px solid #4169e1; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 34: Chocolate Brown */
+        .design-34 { background: #1a0f00; }
+        .design-34 .prototype-title { color: #7b3f00; border-color: #7b3f00; }
+        .chocolate-box { background: #2a1f00; border: 2px solid #7b3f00; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 35: Lavender Soft */
+        .design-35 { background: #2a1a3a; }
+        .design-35 .prototype-title { color: #e6e6fa; border-color: #e6e6fa; }
+        .lavender-box { background: #3a2a4a; border: 2px solid #e6e6fa; padding: 20px; margin: 15px 0; border-radius: 8px; color: #e6e6fa; }
+
+        /* Design 36: Mint Fresh */
+        .design-36 { background: #001a1a; }
+        .design-36 .prototype-title { color: #98ff98; border-color: #98ff98; }
+        .mint-box { background: #002a2a; border: 2px solid #98ff98; padding: 20px; margin: 15px 0; border-radius: 8px; color: #98ff98; }
+
+        /* Design 37: Peach Warm */
+        .design-37 { background: #2a1a0a; }
+        .design-37 .prototype-title { color: #ffdab9; border-color: #ffdab9; }
+        .peach-box { background: #3a2a1a; border: 2px solid #ffdab9; padding: 20px; margin: 15px 0; border-radius: 8px; color: #ffdab9; }
+
+        /* Design 38: Steel Blue */
+        .design-38 { background: #001a2a; }
+        .design-38 .prototype-title { color: #4682b4; border-color: #4682b4; }
+        .steel-box { background: #002a3a; border: 2px solid #4682b4; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 39: Tomato Red */
+        .design-39 { background: #1a0000; }
+        .design-39 .prototype-title { color: #ff6347; border-color: #ff6347; }
+        .tomato-box { background: #2a0000; border: 2px solid #ff6347; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 40: Plum Deep */
+        .design-40 { background: #1a0a1a; }
+        .design-40 .prototype-title { color: #dda0dd; border-color: #dda0dd; }
+        .plum-box { background: #2a1a2a; border: 2px solid #dda0dd; padding: 20px; margin: 15px 0; border-radius: 8px; color: #dda0dd; }
+
+        /* Design 41: Sky Blue */
+        .design-41 { background: #001a2a; }
+        .design-41 .prototype-title { color: #87ceeb; border-color: #87ceeb; }
+        .sky-box { background: #002a3a; border: 2px solid #87ceeb; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 42: Khaki Earth */
+        .design-42 { background: #1a1a0a; }
+        .design-42 .prototype-title { color: #c3b091; border-color: #c3b091; }
+        .khaki-box { background: #2a2a1a; border: 2px solid #c3b091; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 43: Orchid Purple */
+        .design-43 { background: #1a0a2a; }
+        .design-43 .prototype-title { color: #da70d6; border-color: #da70d6; }
+        .orchid-box { background: #2a1a3a; border: 2px solid #da70d6; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 44: Periwinkle */
+        .design-44 { background: #0a0a1a; }
+        .design-44 .prototype-title { color: #ccccff; border-color: #ccccff; }
+        .periwinkle-box { background: #1a1a2a; border: 2px solid #ccccff; padding: 20px; margin: 15px 0; border-radius: 8px; color: #ccccff; }
+
+        /* Design 45: Sienna Brown */
+        .design-45 { background: #1a0f00; }
+        .design-45 .prototype-title { color: #a0522d; border-color: #a0522d; }
+        .sienna-box { background: #2a1f00; border: 2px solid #a0522d; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 46: Thistle Soft */
+        .design-46 { background: #1a1a2a; }
+        .design-46 .prototype-title { color: #d8bfd8; border-color: #d8bfd8; }
+        .thistle-box { background: #2a2a3a; border: 2px solid #d8bfd8; padding: 20px; margin: 15px 0; border-radius: 8px; color: #d8bfd8; }
+
+        /* Design 47: Wheat Gold */
+        .design-47 { background: #1a1a00; }
+        .design-47 .prototype-title { color: #f5deb3; border-color: #f5deb3; }
+        .wheat-box { background: #2a2a00; border: 2px solid #f5deb3; padding: 20px; margin: 15px 0; border-radius: 8px; color: #f5deb3; }
+
+        /* Design 48: Azure Bright */
+        .design-48 { background: #000a1a; }
+        .design-48 .prototype-title { color: #007fff; border-color: #007fff; }
+        .azure-box { background: #001a2a; border: 2px solid #007fff; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 49: Bisque Cream */
+        .design-49 { background: #2a1a0a; }
+        .design-49 .prototype-title { color: #ffe4c4; border-color: #ffe4c4; }
+        .bisque-box { background: #3a2a1a; border: 2px solid #ffe4c4; padding: 20px; margin: 15px 0; border-radius: 8px; color: #ffe4c4; }
+
+        /* Design 50: Crimson Red */
+        .design-50 { background: #1a0000; }
+        .design-50 .prototype-title { color: #dc143c; border-color: #dc143c; }
+        .crimson-box { background: #2a0000; border: 2px solid #dc143c; padding: 20px; margin: 15px 0; border-radius: 8px; }
+
+        /* Design 51: Dotted Border */
+        .design-51 { background: #0a0a1a; border: 3px dotted #64ffda; }
+        .design-51 .prototype-title { color: #64ffda; border-color: #64ffda; }
+        .dotted-box { border: 2px dotted #64ffda; padding: 20px; margin: 15px 0; background: rgba(100, 255, 218, 0.05); }
+
+        /* Design 52: Dashed Border */
+        .design-52 { background: #1a0a1a; border: 3px dashed #ff6b9d; }
+        .design-52 .prototype-title { color: #ff6b9d; border-color: #ff6b9d; }
+        .dashed-box { border: 2px dashed #ff6b9d; padding: 20px; margin: 15px 0; background: rgba(255, 107, 157, 0.05); }
+
+        /* Design 53: Double Border */
+        .design-53 { background: #0a1a0a; border: 5px double #32cd32; }
+        .design-53 .prototype-title { color: #32cd32; border-color: #32cd32; }
+        .double-box { border: 4px double #32cd32; padding: 20px; margin: 15px 0; background: rgba(50, 205, 50, 0.05); }
+
+        /* Design 54: Inset Shadow */
+        .design-54 { background: #1a1a1a; }
+        .design-54 .prototype-title { color: #ffd700; border-color: #ffd700; }
+        .inset-box { padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: inset 0 0 20px rgba(255, 215, 0, 0.3); background: #2a2a2a; border: 1px solid #ffd700; }
+
+        /* Design 55: Outset Shadow */
+        .design-55 { background: #0a0a0a; }
+        .design-55 .prototype-title { color: #00ffff; border-color: #00ffff; }
+        .outset-box { padding: 20px; margin: 15px 0; border-radius: 8px; box-shadow: 0 10px 30px rgba(0, 255, 255, 0.5); background: #1a1a1a; border: 1px solid #00ffff; }
+
+        /* Design 56: Rounded Corners Large */
+        .design-56 { background: #1a0a2a; border-radius: 30px; }
+        .design-56 .prototype-title { color: #ba55d3; border-color: #ba55d3; }
+        .round-box { padding: 20px; margin: 15px 0; border-radius: 25px; background: #2a1a3a; border: 2px solid #ba55d3; }
+
+        /* Design 57: Sharp Corners */
+        .design-57 { background: #1a1a00; border-radius: 0; }
+        .design-57 .prototype-title { color: #ffff00; border-color: #ffff00; }
+        .sharp-box { padding: 20px; margin: 15px 0; border-radius: 0; background: #2a2a00; border: 2px solid #ffff00; }
+
+        /* Design 58: Gradient Text */
+        .design-58 { background: #000000; }
+        .design-58 .prototype-title { background: linear-gradient(90deg, #ff0000, #00ff00, #0000ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; border: none; }
+        .grad-text-box { padding: 20px; margin: 15px 0; background: #1a1a1a; border: 1px solid #333; }
+
+        /* Design 59: Animated Border */
+        .design-59 { background: #0a0a1a; }
+        .design-59 .prototype-title { color: #ff00ff; border-color: #ff00ff; animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .anim-box { padding: 20px; margin: 15px 0; border: 2px solid #ff00ff; background: #1a1a2a; animation: pulse 2s infinite; }
+
+        /* Design 60: 3D Effect */
+        .design-60 { background: #1a1a1a; }
+        .design-60 .prototype-title { color: #ff6b35; border-color: #ff6b35; }
+        .box-3d { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #ff6b35; transform: perspective(1000px) rotateX(5deg); box-shadow: 0 10px 20px rgba(255, 107, 53, 0.3); }
+
+        /* Design 61: Split Color */
+        .design-61 { background: linear-gradient(90deg, #1a0a0a 50%, #0a0a1a 50%); }
+        .design-61 .prototype-title { color: #ff3333; border-color: #3333ff; }
+        .split-box { padding: 20px; margin: 15px 0; background: linear-gradient(90deg, #2a0000 50%, #00002a 50%); border-left: 3px solid #ff3333; border-right: 3px solid #3333ff; }
+
+        /* Design 62: Diagonal Stripes */
+        .design-62 { background: repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #2a2a2a 10px, #2a2a2a 20px); }
+        .design-62 .prototype-title { color: #00ff00; border-color: #00ff00; }
+        .stripe-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #00ff00; }
+
+        /* Design 63: Checkerboard */
+        .design-63 { background: repeating-conic-gradient(#1a1a1a 0% 25%, #2a2a2a 0% 50%) 50% / 40px 40px; }
+        .design-63 .prototype-title { color: #ffffff; border-color: #ffffff; }
+        .checker-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #ffffff; }
+
+        /* Design 64: Radial Gradient */
+        .design-64 { background: radial-gradient(circle, #1a0a2a, #0a0a1a); }
+        .design-64 .prototype-title { color: #ff00ff; border-color: #ff00ff; }
+        .radial-box { padding: 20px; margin: 15px 0; background: radial-gradient(circle, #2a1a3a, #1a1a2a); border: 2px solid #ff00ff; }
+
+        /* Design 65: Text Shadow Heavy */
+        .design-65 { background: #000000; }
+        .design-65 .prototype-title { color: #ff0000; border-color: #ff0000; text-shadow: 3px 3px 0 #ff0000, 6px 6px 0 #aa0000; }
+        .shadow-box { padding: 20px; margin: 15px 0; background: #1a0000; border: 2px solid #ff0000; }
+
+        /* Design 66: Letter Spacing Wide */
+        .design-66 { background: #0a1a0a; }
+        .design-66 .prototype-title { color: #00ff00; border-color: #00ff00; letter-spacing: 5px; }
+        .wide-box { padding: 20px; margin: 15px 0; background: #1a2a1a; border: 2px solid #00ff00; letter-spacing: 2px; }
+
+        /* Design 67: Uppercase Bold */
+        .design-67 { background: #1a0000; }
+        .design-67 .prototype-title { color: #ff3333; border-color: #ff3333; text-transform: uppercase; font-weight: 900; }
+        .upper-box { padding: 20px; margin: 15px 0; background: #2a0000; border: 2px solid #ff3333; text-transform: uppercase; }
+
+        /* Design 68: Italic Style */
+        .design-68 { background: #1a1a00; }
+        .design-68 .prototype-title { color: #ffff00; border-color: #ffff00; font-style: italic; }
+        .italic-box { padding: 20px; margin: 15px 0; background: #2a2a00; border: 2px solid #ffff00; font-style: italic; }
+
+        /* Design 69: Monospace Font */
+        .design-69 { background: #000000; font-family: monospace; }
+        .design-69 .prototype-title { color: #00ff00; border-color: #00ff00; font-family: monospace; }
+        .mono-box { padding: 20px; margin: 15px 0; background: #001100; border: 2px solid #00ff00; font-family: monospace; }
+
+        /* Design 70: Serif Font */
+        .design-70 { background: #1a0a00; font-family: Georgia, serif; }
+        .design-70 .prototype-title { color: #cd853f; border-color: #cd853f; font-family: Georgia, serif; }
+        .serif-box { padding: 20px; margin: 15px 0; background: #2a1a00; border: 2px solid #cd853f; font-family: Georgia, serif; }
+
+        /* Design 71: Compact Spacing */
+        .design-71 { background: #0a0a1a; }
+        .design-71 .prototype-title { color: #8888ff; border-color: #8888ff; line-height: 1.2; }
+        .compact-box { padding: 10px; margin: 10px 0; background: #1a1a2a; border: 2px solid #8888ff; line-height: 1.3; }
+
+        /* Design 72: Loose Spacing */
+        .design-72 { background: #1a1a0a; }
+        .design-72 .prototype-title { color: #ffff88; border-color: #ffff88; line-height: 2; }
+        .loose-box { padding: 40px; margin: 30px 0; background: #2a2a1a; border: 2px solid #ffff88; line-height: 2.5; }
+
+        /* Design 73: Left Align */
+        .design-73 { background: #0a1a0a; }
+        .design-73 .prototype-title { color: #88ff88; border-color: #88ff88; text-align: left; }
+        .left-box { padding: 20px; margin: 15px 0; background: #1a2a1a; border: 2px solid #88ff88; text-align: left; }
+
+        /* Design 74: Right Align */
+        .design-74 { background: #1a0a0a; }
+        .design-74 .prototype-title { color: #ff8888; border-color: #ff8888; text-align: right; }
+        .right-box { padding: 20px; margin: 15px 0; background: #2a1a1a; border: 2px solid #ff8888; text-align: right; }
+
+        /* Design 75: Center Everything */
+        .design-75 { background: #0a0a0a; }
+        .design-75 .prototype-title { color: #ffffff; border-color: #ffffff; text-align: center; }
+        .center-box { padding: 20px; margin: 15px auto; background: #1a1a1a; border: 2px solid #ffffff; text-align: center; max-width: 600px; }
+
+        /* Design 76: Vertical Text */
+        .design-76 { background: #1a1a2a; }
+        .design-76 .prototype-title { color: #ff88ff; border-color: #ff88ff; writing-mode: vertical-rl; text-orientation: mixed; }
+        .vert-box { padding: 20px; margin: 15px 0; background: #2a2a3a; border: 2px solid #ff88ff; }
+
+        /* Design 77: Rotated Text */
+        .design-77 { background: #0a1a1a; }
+        .design-77 .prototype-title { color: #88ffff; border-color: #88ffff; transform: rotate(-5deg); }
+        .rotate-box { padding: 20px; margin: 15px 0; background: #1a2a2a; border: 2px solid #88ffff; transform: rotate(2deg); }
+
+        /* Design 78: Skewed Boxes */
+        .design-78 { background: #1a0000; }
+        .design-78 .prototype-title { color: #ff0000; border-color: #ff0000; transform: skewX(-5deg); }
+        .skew-box { padding: 20px; margin: 15px 0; background: #2a0000; border: 2px solid #ff0000; transform: skewX(3deg); }
+
+        /* Design 79: Scale Effect */
+        .design-79 { background: #001a00; }
+        .design-79 .prototype-title { color: #00ff00; border-color: #00ff00; transform: scale(1.1); }
+        .scale-box { padding: 20px; margin: 15px 0; background: #002a00; border: 2px solid #00ff00; transform: scale(0.95); }
+
+        /* Design 80: Transparent Background */
+        .design-80 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .design-80 .prototype-title { color: white; border-color: rgba(255,255,255,0.3); }
+        .transparent-box { padding: 20px; margin: 15px 0; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
+
+        /* Design 81: Overlay Pattern */
+        .design-81 { background: #1a1a1a; position: relative; }
+        .design-81::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(100, 255, 218, 0.1) 2px, rgba(100, 255, 218, 0.1) 4px); pointer-events: none; }
+        .design-81 .prototype-title { color: #64ffda; border-color: #64ffda; position: relative; z-index: 1; }
+        .overlay-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #64ffda; position: relative; z-index: 1; }
+
+        /* Design 82: Border Image */
+        .design-82 { background: #0a0a1a; }
+        .design-82 .prototype-title { color: #ff00ff; border-color: #ff00ff; }
+        .border-img-box { padding: 20px; margin: 15px 0; background: #1a1a2a; border: 10px solid; border-image: linear-gradient(45deg, #ff00ff, #00ffff) 1; }
+
+        /* Design 83: Clip Path Triangle */
+        .design-83 { background: #1a0a00; }
+        .design-83 .prototype-title { color: #ff6600; border-color: #ff6600; }
+        .triangle-box { padding: 20px; margin: 15px 0; background: #2a1a00; clip-path: polygon(0 0, 100% 0, 100% 85%, 0 100%); border: 2px solid #ff6600; }
+
+        /* Design 84: Clip Path Star */
+        .design-84 { background: #1a1a00; }
+        .design-84 .prototype-title { color: #ffd700; border-color: #ffd700; }
+        .star-box { padding: 30px; margin: 15px 0; background: #2a2a00; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); border: 2px solid #ffd700; }
+
+        /* Design 85: Clip Path Arrow */
+        .design-85 { background: #001a00; }
+        .design-85 .prototype-title { color: #00ff00; border-color: #00ff00; }
+        .arrow-box { padding: 20px; margin: 15px 0; background: #002a00; clip-path: polygon(0 0, 85% 0, 100% 50%, 85% 100%, 0 100%); border: 2px solid #00ff00; }
+
+        /* Design 86: Multiple Borders */
+        .design-86 { background: #1a1a1a; }
+        .design-86 .prototype-title { color: #ff00ff; border-color: #ff00ff; }
+        .multi-border-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 5px solid #ff00ff; outline: 5px solid #00ffff; outline-offset: -10px; }
+
+        /* Design 87: Text Gradient */
+        .design-87 { background: #000000; }
+        .design-87 .prototype-title { background: linear-gradient(90deg, #ff0000, #00ff00, #0000ff); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; border: 2px solid #ffffff; }
+        .text-grad-box { padding: 20px; margin: 15px 0; background: #1a1a1a; border: 2px solid #ffffff; }
+
+        /* Design 88: Background Clip Text */
+        .design-88 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .design-88 .prototype-title { background: #000; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; border: 2px solid white; }
+        .bg-clip-box { padding: 20px; margin: 15px 0; background: rgba(255, 255, 255, 0.1); border: 2px solid white; }
+
+        /* Design 89: Filter Blur */
+        .design-89 { background: #1a1a1a; }
+        .design-89 .prototype-title { color: #ff00ff; border-color: #ff00ff; filter: blur(0.5px); }
+        .blur-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #ff00ff; filter: blur(1px); }
+
+        /* Design 90: Filter Brightness */
+        .design-90 { background: #0a0a0a; }
+        .design-90 .prototype-title { color: #ffff00; border-color: #ffff00; filter: brightness(1.5); }
+        .bright-box { padding: 20px; margin: 15px 0; background: #1a1a00; border: 2px solid #ffff00; filter: brightness(1.3); }
+
+        /* Design 91: Filter Contrast */
+        .design-91 { background: #1a1a1a; }
+        .design-91 .prototype-title { color: #00ffff; border-color: #00ffff; filter: contrast(1.5); }
+        .contrast-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #00ffff; filter: contrast(1.3); }
+
+        /* Design 92: Filter Saturate */
+        .design-92 { background: #0a1a0a; }
+        .design-92 .prototype-title { color: #00ff00; border-color: #00ff00; filter: saturate(2); }
+        .saturate-box { padding: 20px; margin: 15px 0; background: #1a2a1a; border: 2px solid #00ff00; filter: saturate(1.5); }
+
+        /* Design 93: Filter Hue Rotate */
+        .design-93 { background: #1a0a1a; }
+        .design-93 .prototype-title { color: #ff00ff; border-color: #ff00ff; filter: hue-rotate(90deg); }
+        .hue-box { padding: 20px; margin: 15px 0; background: #2a1a2a; border: 2px solid #ff00ff; filter: hue-rotate(45deg); }
+
+        /* Design 94: Filter Invert */
+        .design-94 { background: #ffffff; color: #000000; }
+        .design-94 .prototype-title { color: #000000; border-color: #000000; filter: invert(1); }
+        .invert-box { padding: 20px; margin: 15px 0; background: #f0f0f0; border: 2px solid #000000; filter: invert(0.1); }
+
+        /* Design 95: Filter Sepia */
+        .design-95 { background: #1a0a00; }
+        .design-95 .prototype-title { color: #cd853f; border-color: #cd853f; filter: sepia(0.5); }
+        .sepia-box { padding: 20px; margin: 15px 0; background: #2a1a00; border: 2px solid #cd853f; filter: sepia(0.3); }
+
+        /* Design 96: Multiple Filters */
+        .design-96 { background: #000000; }
+        .design-96 .prototype-title { color: #ff00ff; border-color: #ff00ff; filter: brightness(1.2) contrast(1.3) saturate(1.5); }
+        .multi-filter-box { padding: 20px; margin: 15px 0; background: #1a001a; border: 2px solid #ff00ff; filter: brightness(1.1) contrast(1.2) saturate(1.3); }
+
+        /* Design 97: Backdrop Filter */
+        .design-97 { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .design-97 .prototype-title { color: white; border-color: rgba(255,255,255,0.3); }
+        .backdrop-box { padding: 20px; margin: 15px 0; background: rgba(255, 255, 255, 0.1); border: 2px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(20px) saturate(180%); }
+
+        /* Design 98: Mix Blend Mode */
+        .design-98 { background: #000000; }
+        .design-98 .prototype-title { color: #ff00ff; border-color: #ff00ff; mix-blend-mode: screen; }
+        .blend-box { padding: 20px; margin: 15px 0; background: #1a001a; border: 2px solid #ff00ff; mix-blend-mode: multiply; }
+
+        /* Design 99: Isolation */
+        .design-99 { background: #1a1a1a; isolation: isolate; }
+        .design-99 .prototype-title { color: #00ffff; border-color: #00ffff; }
+        .isolate-box { padding: 20px; margin: 15px 0; background: #2a2a2a; border: 2px solid #00ffff; isolation: isolate; }
+
+        /* Design 100: All Effects Combined */
+        .design-100 { 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid #ff00ff;
+            box-shadow: 0 0 30px rgba(255, 0, 255, 0.5);
+            transform: perspective(1000px) rotateX(2deg);
+        }
+        .design-100 .prototype-title { 
+            color: white; 
+            border-color: rgba(255,255,255,0.5);
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+            filter: brightness(1.2);
+        }
+        .combined-box { 
+            padding: 25px; 
+            margin: 20px 0; 
+            background: rgba(255, 255, 255, 0.1); 
+            border: 2px solid rgba(255, 255, 255, 0.5); 
+            backdrop-filter: blur(15px);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transform: scale(0.98);
+            transition: all 0.3s ease;
+        }
+        .combined-box:hover {
+            transform: scale(1.02);
+            box-shadow: 0 15px 40px rgba(255, 0, 255, 0.4);
+        }
+
+        @media (max-width: 768px) {
+            .prototype-container { padding: 20px; }
+            .nav-menu { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>100 Infrastructure Design Prototypes</h1>
+        <p>Choose your favorite design style for displaying server infrastructure specifications</p>
+    </div>
+
+    <nav class="nav-menu">
+        <h3>Quick Navigation</h3>
+        <a href="#design-1" class="nav-link">1. Terminal</a>
+        <a href="#design-2" class="nav-link">2. Network Nodes</a>
+        <a href="#design-3" class="nav-link">3. Cards Grid</a>
+        <a href="#design-4" class="nav-link">4. Timeline</a>
+        <a href="#design-5" class="nav-link">5. Dashboard</a>
+        <a href="#design-6" class="nav-link">6-10. Color Themes</a>
+        <a href="#design-11" class="nav-link">11-20. Shape Styles</a>
+        <a href="#design-21" class="nav-link">21-30. More Colors</a>
+        <a href="#design-31" class="nav-link">31-40. Color Variations</a>
+        <a href="#design-41" class="nav-link">41-50. Extended Colors</a>
+        <a href="#design-51" class="nav-link">51-60. Border Styles</a>
+        <a href="#design-61" class="nav-link">61-70. Typography</a>
+        <a href="#design-71" class="nav-link">71-80. Layout Effects</a>
+        <a href="#design-81" class="nav-link">81-90. Advanced CSS</a>
+        <a href="#design-91" class="nav-link">91-100. Filters & Effects</a>
+    </nav>
+
+    <!-- Infrastructure Data -->
+    <script>
+        const infraData = {
+            hardware: { title: "Server Hardware", desc: "Raspberry Pi connected to home internet. Running Ubuntu operating system, self-configured." },
+            domain: { title: "Domain & DNS", desc: "Free domain from No-IP with automatic IP update functionality. Updates when home internet IP changes." },
+            ssl: { title: "SSL Certificate", desc: "Let's Encrypt provides free SSL/TLS certificates, enabling secure HTTPS connections." },
+            k8s: { title: "Kubernetes", desc: "K3s lightweight Kubernetes distribution running on Raspberry Pi for container orchestration." },
+            cicd: { title: "CI/CD Pipeline", desc: "GitHub Actions automatically triggers deployment when code is merged into main branch." },
+            deploy: { title: "Deployment", desc: "ArgoCD handles GitOps-based continuous deployment, managing application lifecycle automatically." }
+        };
+    </script>
+
+    <!-- Design 1 -->
+    <div id="design-1" class="prototype-container design-1">
+        <div class="prototype-title">Design 1: Terminal/Command Line</div>
+        <div class="terminal">
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">cat server.txt</span></div>
+            <div class="term-out">Raspberry Pi | Ubuntu OS | Home Internet</div>
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">dig domain.info</span></div>
+            <div class="term-out">No-IP Free Domain | Auto IP Update</div>
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">certbot certificates</span></div>
+            <div class="term-out">Let's Encrypt SSL | Free HTTPS</div>
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">kubectl get nodes</span></div>
+            <div class="term-out">K3s Kubernetes | Container Orchestration</div>
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">gh workflow list</span></div>
+            <div class="term-out">GitHub Actions CI/CD | Auto Deploy on Merge</div>
+            <div class="term-line"><span class="term-prompt">$</span> <span class="term-cmd">argocd app list</span></div>
+            <div class="term-out">ArgoCD GitOps | Continuous Deployment</div>
+        </div>
+    </div>
+
+    <!-- Design 2 -->
+    <div id="design-2" class="prototype-container design-2">
+        <div class="prototype-title">Design 2: Network Node Diagram</div>
+        <div class="network-flow">
+            <div class="node">🖥️ Raspberry Pi<br>Ubuntu OS</div>
+            <div class="connector"></div>
+            <div class="node">🌐 No-IP Domain<br>Auto IP Update</div>
+            <div class="connector"></div>
+            <div class="node">🔒 Let's Encrypt<br>Free SSL</div>
+            <div class="connector"></div>
+            <div class="node">☸️ K3s Kubernetes<br>Container Platform</div>
+            <div class="connector"></div>
+            <div class="node">⚙️ GitHub Actions<br>CI/CD Pipeline</div>
+            <div class="connector"></div>
+            <div class="node">🚀 ArgoCD<br>GitOps Deployment</div>
+        </div>
+    </div>
+
+    <!-- Design 3 -->
+    <div id="design-3" class="prototype-container design-3">
+        <div class="prototype-title">Design 3: Card Grid Layout</div>
+        <div class="card-grid">
+            <div class="card"><div class="info-title">🖥️ Server Hardware</div><div class="info-desc">Raspberry Pi with Ubuntu OS, self-configured</div></div>
+            <div class="card"><div class="info-title">🌐 Domain & DNS</div><div class="info-desc">No-IP free domain with automatic IP update</div></div>
+            <div class="card"><div class="info-title">🔒 SSL Certificate</div><div class="info-desc">Let's Encrypt free SSL/TLS certificates</div></div>
+            <div class="card"><div class="info-title">☸️ Kubernetes</div><div class="info-desc">K3s lightweight K8s on Raspberry Pi</div></div>
+            <div class="card"><div class="info-title">⚙️ CI/CD</div><div class="info-desc">GitHub Actions auto-deploy on main merge</div></div>
+            <div class="card"><div class="info-title">🚀 Deployment</div><div class="info-desc">ArgoCD GitOps continuous deployment</div></div>
+        </div>
+    </div>
+
+    <!-- Design 4 -->
+    <div id="design-4" class="prototype-container design-4">
+        <div class="prototype-title">Design 4: Timeline Flow</div>
+        <div class="timeline">
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Infrastructure</div>
+                    <div class="timeline-title">Raspberry Pi Server</div>
+                    <div class="timeline-description">Ubuntu OS, self-configured, home internet</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Networking</div>
+                    <div class="timeline-title">No-IP Domain</div>
+                    <div class="timeline-description">Free domain with automatic IP update</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Security</div>
+                    <div class="timeline-title">Let's Encrypt SSL</div>
+                    <div class="timeline-description">Free SSL/TLS certificates for HTTPS</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Orchestration</div>
+                    <div class="timeline-title">K3s Kubernetes</div>
+                    <div class="timeline-description">Lightweight Kubernetes for containers</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Automation</div>
+                    <div class="timeline-title">GitHub Actions</div>
+                    <div class="timeline-description">CI/CD pipeline triggers on merge</div>
+                </div>
+            </div>
+            <div class="timeline-item">
+                <div class="timeline-dot"></div>
+                <div class="timeline-box">
+                    <div class="timeline-label">Deployment</div>
+                    <div class="timeline-title">ArgoCD</div>
+                    <div class="timeline-description">GitOps-based continuous deployment</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Design 5 -->
+    <div id="design-5" class="prototype-container design-5">
+        <div class="prototype-title">Design 5: Dashboard Panels</div>
+        <div class="dashboard-grid">
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Server Hardware</div><div class="badge">Active</div></div>
+                <div class="panel-content">Raspberry Pi<br>Ubuntu OS<br>Home Internet</div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Domain & DNS</div><div class="badge">Synced</div></div>
+                <div class="panel-content">No-IP Free Domain<br>Auto IP Update</div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">SSL/TLS</div><div class="badge">Valid</div></div>
+                <div class="panel-content">Let's Encrypt<br>Free Certificate</div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Kubernetes</div><div class="badge">Running</div></div>
+                <div class="panel-content">K3s Distribution<br>Container Orchestration</div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">CI/CD</div><div class="badge">Enabled</div></div>
+                <div class="panel-content">GitHub Actions<br>Trigger: Merge to main</div>
+            </div>
+            <div class="panel">
+                <div class="panel-header"><div class="panel-title">Deployment</div><div class="badge">Active</div></div>
+                <div class="panel-content">ArgoCD GitOps<br>Continuous Deployment</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Designs 6-100 will follow similar pattern but with different styles -->
+    <!-- Due to length, I'll create a script to generate the remaining designs -->
+    
+    <script>
+        const designs = [
+            { num: 6, name: "Neon Glow", class: "design-6", boxClass: "neon-box" },
+            { num: 7, name: "Glass Morphism", class: "design-7", boxClass: "glass" },
+            { num: 8, name: "Minimalist", class: "design-8", boxClass: "minimal-box" },
+            { num: 9, name: "Cyberpunk", class: "design-9", boxClass: "cyber-box" },
+            { num: 10, name: "Gradient Cards", class: "design-10", boxClass: "grad-card" },
+            { num: 11, name: "Hexagonal", class: "design-11", boxClass: "hex" },
+            { num: 12, name: "Paper Style", class: "design-12", boxClass: "paper" },
+            { num: 13, name: "Dark Blue", class: "design-13", boxClass: "blue-box" },
+            { num: 14, name: "Purple Dream", class: "design-14", boxClass: "purple-box" },
+            { num: 15, name: "Orange Energy", class: "design-15", boxClass: "orange-box" },
+            { num: 16, name: "Matrix Style", class: "design-16", boxClass: "matrix-box" },
+            { num: 17, name: "Soft Pink", class: "design-17", boxClass: "pink-box" },
+            { num: 18, name: "Ocean Blue", class: "design-18", boxClass: "ocean-box" },
+            { num: 19, name: "Fire Red", class: "design-19", boxClass: "fire-box" },
+            { num: 20, name: "Gold Luxury", class: "design-20", boxClass: "gold-box" },
+            { num: 21, name: "Teal Modern", class: "design-21", boxClass: "teal-box" },
+            { num: 22, name: "Indigo Deep", class: "design-22", boxClass: "indigo-box" },
+            { num: 23, name: "Lime Fresh", class: "design-23", boxClass: "lime-box" },
+            { num: 24, name: "Coral Warm", class: "design-24", boxClass: "coral-box" },
+            { num: 25, name: "Violet Soft", class: "design-25", boxClass: "violet-box" },
+            { num: 26, name: "Cyan Bright", class: "design-26", boxClass: "cyan-box" },
+            { num: 27, name: "Maroon Rich", class: "design-27", boxClass: "maroon-box" },
+            { num: 28, name: "Turquoise Cool", class: "design-28", boxClass: "turquoise-box" },
+            { num: 29, name: "Salmon Light", class: "design-29", boxClass: "salmon-box" },
+            { num: 30, name: "Slate Gray", class: "design-30", boxClass: "slate-box" },
+            { num: 31, name: "Brick Pattern", class: "design-31", boxClass: "brick-box" },
+            { num: 32, name: "Emerald Green", class: "design-32", boxClass: "emerald-box" },
+            { num: 33, name: "Royal Blue", class: "design-33", boxClass: "royal-box" },
+            { num: 34, name: "Chocolate Brown", class: "design-34", boxClass: "chocolate-box" },
+            { num: 35, name: "Lavender Soft", class: "design-35", boxClass: "lavender-box" },
+            { num: 36, name: "Mint Fresh", class: "design-36", boxClass: "mint-box" },
+            { num: 37, name: "Peach Warm", class: "design-37", boxClass: "peach-box" },
+            { num: 38, name: "Steel Blue", class: "design-38", boxClass: "steel-box" },
+            { num: 39, name: "Tomato Red", class: "design-39", boxClass: "tomato-box" },
+            { num: 40, name: "Plum Deep", class: "design-40", boxClass: "plum-box" },
+            { num: 41, name: "Sky Blue", class: "design-41", boxClass: "sky-box" },
+            { num: 42, name: "Khaki Earth", class: "design-42", boxClass: "khaki-box" },
+            { num: 43, name: "Orchid Purple", class: "design-43", boxClass: "orchid-box" },
+            { num: 44, name: "Periwinkle", class: "design-44", boxClass: "periwinkle-box" },
+            { num: 45, name: "Sienna Brown", class: "design-45", boxClass: "sienna-box" },
+            { num: 46, name: "Thistle Soft", class: "design-46", boxClass: "thistle-box" },
+            { num: 47, name: "Wheat Gold", class: "design-47", boxClass: "wheat-box" },
+            { num: 48, name: "Azure Bright", class: "design-48", boxClass: "azure-box" },
+            { num: 49, name: "Bisque Cream", class: "design-49", boxClass: "bisque-box" },
+            { num: 50, name: "Crimson Red", class: "design-50", boxClass: "crimson-box" },
+            { num: 51, name: "Dotted Border", class: "design-51", boxClass: "dotted-box" },
+            { num: 52, name: "Dashed Border", class: "design-52", boxClass: "dashed-box" },
+            { num: 53, name: "Double Border", class: "design-53", boxClass: "double-box" },
+            { num: 54, name: "Inset Shadow", class: "design-54", boxClass: "inset-box" },
+            { num: 55, name: "Outset Shadow", class: "design-55", boxClass: "outset-box" },
+            { num: 56, name: "Rounded Large", class: "design-56", boxClass: "round-box" },
+            { num: 57, name: "Sharp Corners", class: "design-57", boxClass: "sharp-box" },
+            { num: 58, name: "Gradient Text", class: "design-58", boxClass: "grad-text-box" },
+            { num: 59, name: "Animated Border", class: "design-59", boxClass: "anim-box" },
+            { num: 60, name: "3D Effect", class: "design-60", boxClass: "box-3d" },
+            { num: 61, name: "Split Color", class: "design-61", boxClass: "split-box" },
+            { num: 62, name: "Diagonal Stripes", class: "design-62", boxClass: "stripe-box" },
+            { num: 63, name: "Checkerboard", class: "design-63", boxClass: "checker-box" },
+            { num: 64, name: "Radial Gradient", class: "design-64", boxClass: "radial-box" },
+            { num: 65, name: "Text Shadow Heavy", class: "design-65", boxClass: "shadow-box" },
+            { num: 66, name: "Letter Spacing Wide", class: "design-66", boxClass: "wide-box" },
+            { num: 67, name: "Uppercase Bold", class: "design-67", boxClass: "upper-box" },
+            { num: 68, name: "Italic Style", class: "design-68", boxClass: "italic-box" },
+            { num: 69, name: "Monospace Font", class: "design-69", boxClass: "mono-box" },
+            { num: 70, name: "Serif Font", class: "design-70", boxClass: "serif-box" },
+            { num: 71, name: "Compact Spacing", class: "design-71", boxClass: "compact-box" },
+            { num: 72, name: "Loose Spacing", class: "design-72", boxClass: "loose-box" },
+            { num: 73, name: "Left Align", class: "design-73", boxClass: "left-box" },
+            { num: 74, name: "Right Align", class: "design-74", boxClass: "right-box" },
+            { num: 75, name: "Center Everything", class: "design-75", boxClass: "center-box" },
+            { num: 76, name: "Vertical Text", class: "design-76", boxClass: "vert-box" },
+            { num: 77, name: "Rotated Text", class: "design-77", boxClass: "rotate-box" },
+            { num: 78, name: "Skewed Boxes", class: "design-78", boxClass: "skew-box" },
+            { num: 79, name: "Scale Effect", class: "design-79", boxClass: "scale-box" },
+            { num: 80, name: "Transparent Background", class: "design-80", boxClass: "transparent-box" },
+            { num: 81, name: "Overlay Pattern", class: "design-81", boxClass: "overlay-box" },
+            { num: 82, name: "Border Image", class: "design-82", boxClass: "border-img-box" },
+            { num: 83, name: "Clip Path Triangle", class: "design-83", boxClass: "triangle-box" },
+            { num: 84, name: "Clip Path Star", class: "design-84", boxClass: "star-box" },
+            { num: 85, name: "Clip Path Arrow", class: "design-85", boxClass: "arrow-box" },
+            { num: 86, name: "Multiple Borders", class: "design-86", boxClass: "multi-border-box" },
+            { num: 87, name: "Text Gradient", class: "design-87", boxClass: "text-grad-box" },
+            { num: 88, name: "Background Clip Text", class: "design-88", boxClass: "bg-clip-box" },
+            { num: 89, name: "Filter Blur", class: "design-89", boxClass: "blur-box" },
+            { num: 90, name: "Filter Brightness", class: "design-90", boxClass: "bright-box" },
+            { num: 91, name: "Filter Contrast", class: "design-91", boxClass: "contrast-box" },
+            { num: 92, name: "Filter Saturate", class: "design-92", boxClass: "saturate-box" },
+            { num: 93, name: "Filter Hue Rotate", class: "design-93", boxClass: "hue-box" },
+            { num: 94, name: "Filter Invert", class: "design-94", boxClass: "invert-box" },
+            { num: 95, name: "Filter Sepia", class: "design-95", boxClass: "sepia-box" },
+            { num: 96, name: "Multiple Filters", class: "design-96", boxClass: "multi-filter-box" },
+            { num: 97, name: "Backdrop Filter", class: "design-97", boxClass: "backdrop-box" },
+            { num: 98, name: "Mix Blend Mode", class: "design-98", boxClass: "blend-box" },
+            { num: 99, name: "Isolation", class: "design-99", boxClass: "isolate-box" },
+            { num: 100, name: "All Effects Combined", class: "design-100", boxClass: "combined-box" }
+        ];
+
+        const items = [
+            { icon: "🖥️", title: "Server Hardware", desc: "Raspberry Pi with Ubuntu OS, self-configured" },
+            { icon: "🌐", title: "Domain & DNS", desc: "No-IP free domain with automatic IP update" },
+            { icon: "🔒", title: "SSL Certificate", desc: "Let's Encrypt free SSL/TLS certificates" },
+            { icon: "☸️", title: "Kubernetes", desc: "K3s lightweight K8s on Raspberry Pi" },
+            { icon: "⚙️", title: "CI/CD", desc: "GitHub Actions auto-deploy on main merge" },
+            { icon: "🚀", title: "Deployment", desc: "ArgoCD GitOps continuous deployment" }
+        ];
+
+        function generateDesign(design) {
+            let html = `<div id="design-${design.num}" class="prototype-container ${design.class}">`;
+            html += `<div class="prototype-title">Design ${design.num}: ${design.name}</div>`;
+            items.forEach(item => {
+                html += `<div class="${design.boxClass} info-item">`;
+                html += `<div class="info-title">${item.icon} ${item.title}</div>`;
+                html += `<div class="info-desc">${item.desc}</div>`;
+                html += `</div>`;
+            });
+            html += `</div>`;
+            return html;
+        }
+
+        // Generate designs 6-100
+        let allDesigns = '';
+        for (let i = 6; i <= 100; i++) {
+            const design = designs.find(d => d.num === i);
+            if (design) {
+                allDesigns += generateDesign(design);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.body;
+            const existingDesigns = container.querySelectorAll('.prototype-container');
+            const lastDesign = existingDesigns[existingDesigns.length - 1];
+            if (lastDesign) {
+                lastDesign.insertAdjacentHTML('afterend', allDesigns);
+            }
+        });
+    </script>
+
+    <div style="text-align: center; margin-top: 60px; padding: 30px; color: #8b949e;">
+        <p>Scroll through all 100 designs above to find your perfect style!</p>
+        <p style="margin-top: 20px; font-size: 14px;">Each design showcases the same infrastructure information in a unique visual style.</p>
+    </div>
+</body>
+</html>

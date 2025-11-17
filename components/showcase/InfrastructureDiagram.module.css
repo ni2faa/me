@@ -1,0 +1,458 @@
+.container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 40px 20px;
+  min-height: calc(100vh - 200px);
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.header h1 {
+  font-size: 42px;
+  color: rgb(var(--fg));
+  margin-bottom: 10px;
+}
+
+.header p {
+  font-size: 18px;
+  color: rgb(var(--muted));
+}
+
+.diagramContainer {
+  position: relative;
+  width: 100%;
+  min-height: 1000px;
+  background: rgba(var(--bg), 0.5);
+  border-radius: var(--radius);
+  padding: 80px 100px;
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(var(--muted), 0.2);
+  box-shadow: var(--shadow);
+  /* Create stacking context */
+  isolation: isolate;
+}
+
+/* SVG Connection Lines - Behind nodes */
+.connections {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+  overflow: visible;
+}
+
+/* Connection line styles */
+:global(.connection-line) {
+  stroke: #64ffda;
+  stroke-width: 3;
+  fill: none;
+  stroke-dasharray: 5, 5;
+  animation: dash 20s linear infinite;
+  opacity: 0.6;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+:global(.connection-line.active) {
+  opacity: 1;
+  stroke-width: 4;
+  animation: dash 2s linear infinite;
+}
+
+/* Node Styles - Above connection lines */
+.node {
+  position: absolute;
+  z-index: 1;
+  cursor: pointer;
+  transition: z-index 0.3s ease;
+  /* Create new stacking context for nodes */
+  isolation: isolate;
+}
+
+.node:hover {
+  z-index: 2;
+}
+
+.nodeCard {
+  position: relative;
+  z-index: 1;
+  background: rgb(var(--bg));
+  border: 2px solid rgb(var(--primary));
+  border-radius: var(--radius);
+  padding: 28px;
+  min-width: 240px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  /* Ensure card background is opaque to hide lines behind */
+  isolation: isolate;
+}
+
+.node:hover .nodeCard {
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+  border-color: rgb(var(--accent));
+}
+
+.nodeIcon {
+  font-size: 48px;
+  text-align: center;
+  margin-bottom: 12px;
+  filter: drop-shadow(0 0 10px rgba(100, 255, 218, 0.5));
+}
+
+.nodeTitle {
+  font-size: 18px;
+  font-weight: 700;
+  color: rgb(var(--primary));
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.nodeDescription {
+  font-size: 13px;
+  color: rgb(var(--muted));
+  text-align: center;
+  line-height: 1.5;
+  opacity: 0.9;
+}
+
+.nodeBadge {
+  display: inline-block;
+  padding: 4px 12px;
+  background: rgba(var(--primary), 0.2);
+  border: 1px solid rgb(var(--primary));
+  border-radius: 12px;
+  font-size: 11px;
+  color: rgb(var(--primary));
+  margin-top: 8px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Specific Node Positions */
+.nodeServer {
+  top: 8%;
+  left: 5%;
+}
+
+.nodeDomain {
+  top: 8%;
+  right: 5%;
+}
+
+.nodeSsl {
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.nodeK8s {
+  bottom: 30%;
+  left: 5%;
+}
+
+.nodeCicd {
+  bottom: 30%;
+  right: 5%;
+}
+
+.nodeDeploy {
+  bottom: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* Info Panel */
+.infoPanel {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: rgba(15, 23, 42, 0.95);
+  border: 2px solid #64ffda;
+  border-radius: 16px;
+  padding: 20px;
+  max-width: 350px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  z-index: 100;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.3s ease;
+  pointer-events: none;
+}
+
+.infoPanel.active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: all;
+}
+
+.infoPanel h3 {
+  color: #64ffda;
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.infoPanel p {
+  color: #cbd5e1;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: #64ffda;
+  font-size: 24px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close:hover {
+  background: rgba(100, 255, 218, 0.2);
+}
+
+/* Legend */
+.legend {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(100, 255, 218, 0.3);
+  border-radius: 12px;
+  padding: 16px;
+  backdrop-filter: blur(10px);
+  z-index: 50;
+}
+
+.legend h4 {
+  color: #64ffda;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+  font-size: 12px;
+  color: #cbd5e1;
+}
+
+.legendDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #64ffda;
+  box-shadow: 0 0 8px rgba(100, 255, 218, 0.6);
+}
+
+/* Loading Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.node {
+  animation: fadeIn 0.6s ease-out;
+  animation-fill-mode: forwards;
+}
+
+.node:nth-child(1) {
+  animation-delay: 0.1s;
+}
+.node:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.node:nth-child(3) {
+  animation-delay: 0.3s;
+}
+.node:nth-child(4) {
+  animation-delay: 0.4s;
+}
+.node:nth-child(5) {
+  animation-delay: 0.5s;
+}
+.node:nth-child(6) {
+  animation-delay: 0.6s;
+}
+
+/* Responsive - Keep same layout on mobile */
+@media (max-width: 1200px) {
+  .diagramContainer {
+    padding: 40px 20px;
+    min-height: 1000px;
+  }
+
+  .node {
+    min-width: 200px;
+  }
+
+  .nodeCard {
+    padding: 20px;
+    min-width: 200px;
+  }
+
+  .nodeIcon {
+    font-size: 36px;
+  }
+
+  .nodeTitle {
+    font-size: 16px;
+  }
+
+  .nodeDescription {
+    font-size: 12px;
+  }
+
+  .infoPanel {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    left: 20px;
+    max-width: calc(100% - 40px);
+  }
+}
+
+@media (max-width: 768px) {
+  .container {
+    padding: 20px 10px;
+  }
+
+  .header {
+    margin-bottom: 30px;
+  }
+
+  .header h1 {
+    font-size: 24px;
+  }
+
+  .header p {
+    font-size: 14px;
+  }
+
+  .diagramContainer {
+    padding: 20px 15px;
+    min-height: 600px;
+    transform: scale(0.6);
+    transform-origin: top center;
+    width: 166.67%; /* Compensate for scale to maintain layout */
+    margin-left: -33.33%; /* Center the scaled content */
+  }
+
+  .node {
+    min-width: 120px;
+  }
+
+  .nodeCard {
+    padding: 12px;
+    min-width: 120px;
+  }
+
+  .nodeIcon {
+    font-size: 24px;
+    margin-bottom: 8px;
+  }
+
+  .nodeTitle {
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
+  .nodeDescription {
+    font-size: 10px;
+    line-height: 1.4;
+  }
+
+  .nodeBadge {
+    padding: 3px 8px;
+    font-size: 9px;
+    margin-top: 6px;
+  }
+
+  /* Keep same relative positions but scaled */
+  .nodeServer {
+    top: 8%;
+    left: 5%;
+  }
+
+  .nodeDomain {
+    top: 8%;
+    right: 5%;
+  }
+
+  .nodeSsl {
+    top: 30%;
+    left: 50%;
+    transform: translateX(-50%) scale(1);
+  }
+
+  .nodeK8s {
+    bottom: 30%;
+    left: 5%;
+    transform: scale(1);
+  }
+
+  .nodeCicd {
+    bottom: 30%;
+    right: 5%;
+    transform: scale(1);
+  }
+
+  .nodeDeploy {
+    bottom: 8%;
+    left: 50%;
+    transform: translateX(-50%) scale(1);
+  }
+
+  /* Connection lines scale with container */
+  .connections {
+    transform: scale(1);
+    width: 100%;
+    height: 100%;
+  }
+
+  .infoPanel {
+    position: fixed;
+    bottom: 15px;
+    right: 15px;
+    left: 15px;
+    max-width: calc(100% - 30px);
+    padding: 15px;
+    font-size: 12px;
+  }
+
+  .infoPanel h3 {
+    font-size: 16px;
+    margin-bottom: 8px;
+  }
+
+  .infoPanel p {
+    font-size: 12px;
+  }
+}
+
