@@ -250,6 +250,26 @@
   .form-row {
     grid-template-columns: 1fr;
   }
+
+  .intro-content {
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .intro-image-wrapper {
+    display: flex;
+    justify-content: center;
+  }
+
+  .intro-profile-image {
+    width: 160px;
+    height: 160px;
+  }
+
+  .intro-main {
+    text-align: center;
+  }
 }
 
 /* ==========================================================================
